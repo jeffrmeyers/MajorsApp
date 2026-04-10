@@ -162,7 +162,7 @@ main {
   margin-left: 8px;
 }
 
-/* SCROLL WRAPPER — used inside both the leaderboard and team cards */
+/* SCROLL WRAPPER â€” used inside both the leaderboard and team cards */
 .table-scroll {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
@@ -512,6 +512,213 @@ main {
 .status-wd {
   background: var(--gray-200);
   color: var(--gray-600);
+}
+
+/* DONKEY PLAYER SECTION */
+#donkey-section {
+  margin-bottom: 0;
+}
+
+.donkey-card {
+  background: var(--white);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 20px 24px;
+  border-left: 4px solid var(--gold);
+}
+
+.donkey-description {
+  font-size: 14px;
+  color: var(--gray-600);
+  margin-bottom: 16px;
+  line-height: 1.5;
+}
+
+.donkey-input-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.donkey-input-wrap {
+  position: relative;
+  flex: 1;
+  max-width: 420px;
+}
+
+.donkey-input {
+  width: 100%;
+  padding: 10px 40px 10px 14px;
+  font-size: 15px;
+  border: 2px solid var(--gray-200);
+  border-radius: 8px;
+  outline: none;
+  background: var(--white);
+  color: var(--gray-800);
+  transition: border-color 0.2s;
+  font-family: inherit;
+}
+
+.donkey-input:focus {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(201, 168, 76, 0.15);
+}
+
+.donkey-clear {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--gray-400);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px;
+  line-height: 1;
+  transition: color 0.15s;
+}
+
+.donkey-clear:hover {
+  color: var(--gray-800);
+}
+
+/* Autocomplete dropdown */
+.donkey-suggestions {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: var(--white);
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+  z-index: 100;
+  overflow: hidden;
+}
+
+.donkey-suggestion-item {
+  padding: 10px 14px;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--gray-100);
+  transition: background 0.12s;
+}
+
+.donkey-suggestion-item:last-child {
+  border-bottom: none;
+}
+
+.donkey-suggestion-item:hover {
+  background: var(--gray-50);
+}
+
+.donkey-suggestion-item.no-match {
+  color: var(--gray-400);
+  font-style: italic;
+  cursor: default;
+  justify-content: center;
+}
+
+.suggestion-name {
+  font-weight: 500;
+}
+
+.suggestion-meta {
+  font-size: 12px;
+  font-weight: 600;
+  margin-left: 8px;
+  flex-shrink: 0;
+}
+
+/* Selected donkey player info panel */
+.donkey-info {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--gray-200);
+}
+
+.donkey-info-inner {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.donkey-player-name {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--gray-800);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.donkey-player-pos {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.donkey-scores {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.donkey-score-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--gray-100);
+  border-radius: 8px;
+  padding: 6px 12px;
+}
+
+.donkey-score-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--gray-600);
+}
+
+.donkey-round-val {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.donkey-warning {
+  width: 100%;
+  font-size: 13px;
+  color: #92400e;
+  background: #fef3c7;
+  border-radius: 6px;
+  padding: 8px 12px;
+  margin-top: 8px;
+}
+
+/* Donkey round pill */
+.round-pill.donkey {
+  background: #fef3c7;
+  color: #92400e;
+  font-size: 11px;
+}
+
+/* Donkey substitution row highlight */
+.donkey-row {
+  background: #fffbeb !important;
+}
+
+.donkey-row:hover {
+  background: #fef3c7 !important;
+}
+
+.status-donkey {
+  background: #fef3c7;
+  color: #92400e;
 }
 
 /* FOOTER */
