@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Masters Fantasy League 2026</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header>
+    <div class="header-inner">
+      <div class="flag-line">
+        <span class="flag-icon">⛳</span>
+        <span class="tournament-label">THE MASTERS · 2026</span>
+        <span class="flag-icon">⛳</span>
+      </div>
+      <h1>Fantasy League Leaderboard</h1>
+      <div id="status-bar">
+        <span id="round-badge" class="round-badge">Round 1</span>
+        <span id="last-updated" class="last-updated">Fetching scores...</span>
+        <button id="refresh-btn" class="refresh-btn" onclick="loadScores()">↻ Refresh</button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section id="team-leaderboard">
+      <h2 class="section-title">Team Standings</h2>
+      <div id="leaderboard-table-wrap">
+        <div class="loading-spinner" id="loading">
+          <div class="spinner"></div>
+          <p>Loading live scores...</p>
+        </div>
+        <table id="leaderboard-table" class="hidden">
+          <thead>
+            <tr>
+              <th class="col-rank">Rank</th>
+              <th class="col-team">Team</th>
+              <th class="col-r1">R1</th>
+              <th class="col-r2">R2</th>
+              <th class="col-r3">R3</th>
+              <th class="col-r4">R4</th>
+              <th class="col-total">Total</th>
+            </tr>
+          </thead>
+          <tbody id="leaderboard-body"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="team-cards">
+      <h2 class="section-title">Team Breakdown</h2>
+      <div id="cards-grid"></div>
+    </section>
+  </main>
+
+  <footer>
+    <p>Scores sourced from <a href="https://www.masters.com" target="_blank">masters.com</a> · Auto-refreshes every 60 seconds</p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
