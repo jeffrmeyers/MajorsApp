@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Masters Fantasy League Tracker
+Majors Fantasy League Tracker
 Run: python3 server.py
 Then open http://localhost:3000 in your browser.
 """
@@ -190,11 +190,33 @@ def build_scores_response():
     except (ValueError, TypeError):
         current_round_out = 1
 
+    # Full player list for donkey player lookup
+    all_players_out = []
+    for p in players:
+        p_rounds = [
+            p.get('round1', {}).get('fantasy'),
+            p.get('round2', {}).get('fantasy'),
+            p.get('round3', {}).get('fantasy'),
+            p.get('round4', {}).get('fantasy'),
+        ]
+        for i, rs in enumerate(round_statuses):
+            if rs == 'N':
+                p_rounds[i] = None
+        all_players_out.append({
+            'name': p['full_name'],
+            'rounds': p_rounds,
+            'status': p.get('status', ''),
+            'topar': parse_topar(p.get('topar', 'E')),
+            'pos': p.get('pos', '-'),
+        })
+    all_players_out.sort(key=lambda p: p['name'])
+
     return {
         'teams': team_data,
         'lastUpdated': wall_clock,
         'currentRound': current_round_out,
         'roundStatuses': round_statuses,
+        'allPlayers': all_players_out,
     }
 
 
