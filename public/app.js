@@ -125,6 +125,7 @@ function renderTeamCards(teams, roundStatuses) {
               <span class="team-card-total ${totalFmt.cls}">${teamToparDisplay}</span>
             </div>
           </div>
+          <div class="table-scroll">
           <table class="player-table">
             <thead>
               <tr>
@@ -137,6 +138,7 @@ function renderTeamCards(teams, roundStatuses) {
             </thead>
             <tbody>${playerRows}</tbody>
           </table>
+          </div>
         </div>`;
     })
     .join('');
