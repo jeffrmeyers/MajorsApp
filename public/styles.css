@@ -162,6 +162,31 @@ main {
   margin-left: 8px;
 }
 
+/* SCROLL WRAPPER — used inside both the leaderboard and team cards */
+.table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Subtle right-edge fade hint when content is scrollable */
+.table-scroll::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 32px;
+  height: 100%;
+  background: linear-gradient(to right, transparent, rgba(255,255,255,0.7));
+  pointer-events: none;
+  border-radius: 0 var(--radius) var(--radius) 0;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.table-scroll-wrap {
+  position: relative;
+}
+
 /* LEADERBOARD TABLE */
 #leaderboard-table-wrap {
   background: var(--white);
@@ -172,6 +197,7 @@ main {
 
 #leaderboard-table {
   width: 100%;
+  min-width: 480px;
   border-collapse: collapse;
 }
 
@@ -189,10 +215,10 @@ main {
   text-transform: uppercase;
 }
 
-.col-rank { width: 64px; text-align: center !important; }
-.col-team { min-width: 160px; }
-.col-r1, .col-r2, .col-r3, .col-r4 { width: 70px; text-align: center !important; }
-.col-total { width: 90px; text-align: center !important; }
+.col-rank { width: 56px; min-width: 56px; text-align: center !important; white-space: nowrap; }
+.col-team { min-width: 140px; white-space: nowrap; }
+.col-r1, .col-r2, .col-r3, .col-r4 { width: 60px; min-width: 60px; text-align: center !important; white-space: nowrap; }
+.col-total { width: 80px; min-width: 80px; text-align: center !important; white-space: nowrap; }
 
 #leaderboard-table tbody tr {
   border-bottom: 1px solid var(--gray-200);
@@ -219,6 +245,7 @@ main {
 #leaderboard-table tbody td {
   padding: 14px 16px;
   font-size: 15px;
+  white-space: nowrap;
 }
 
 .rank-cell {
@@ -362,6 +389,7 @@ main {
 /* Player rows */
 .player-table {
   width: 100%;
+  min-width: 420px;
   border-collapse: collapse;
 }
 
@@ -377,6 +405,7 @@ main {
   text-transform: uppercase;
   color: var(--gray-600);
   text-align: left;
+  white-space: nowrap;
 }
 
 .player-table thead th.right {
@@ -394,6 +423,7 @@ main {
 .player-table tbody td {
   padding: 10px 12px;
   font-size: 14px;
+  white-space: nowrap;
 }
 
 .player-name {
@@ -507,11 +537,13 @@ footer a:hover {
     padding: 20px 16px 24px;
   }
 
-  .col-r2, .col-r3, .col-r4 {
-    display: none;
-  }
-
   #cards-grid {
     grid-template-columns: 1fr;
+  }
+
+  .player-name {
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 }
