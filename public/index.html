@@ -24,6 +24,30 @@
   </header>
 
   <main>
+    <section id="donkey-section">
+      <h2 class="section-title">🫏 Donkey Player</h2>
+      <div class="donkey-card">
+        <p class="donkey-description">
+          Any player who misses the cut will have their R3 &amp; R4 scores replaced with the Donkey Player's scores.
+        </p>
+        <div class="donkey-input-row">
+          <div class="donkey-input-wrap">
+            <input
+              type="text"
+              id="donkey-input"
+              class="donkey-input"
+              placeholder="Type a player name to search..."
+              autocomplete="off"
+              spellcheck="false"
+            />
+            <button id="donkey-clear" class="donkey-clear hidden" aria-label="Clear donkey player">✕</button>
+            <div id="donkey-suggestions" class="donkey-suggestions hidden"></div>
+          </div>
+        </div>
+        <div id="donkey-info" class="donkey-info hidden"></div>
+      </div>
+    </section>
+
     <section id="team-leaderboard">
       <h2 class="section-title">Team Standings</h2>
       <div id="leaderboard-table-wrap">
