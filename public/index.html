@@ -25,23 +25,27 @@
 
   <main>
     <section id="donkey-section">
-      <h2 class="section-title">🫏 Donkey Player</h2>
+      <h2 class="section-title">🫏 Donkey Players</h2>
       <div class="donkey-card">
         <p class="donkey-description">
-          Any player who misses the cut will have their R3 &amp; R4 scores replaced with the Donkey Player's scores.
+          Cut players on each team are substituted in roster order — the 1st cut player gets Donkey 1's R3 &amp; R4 scores, the 2nd cut player gets Donkey 2's.
         </p>
-        <div class="donkey-input-row">
-          <div class="donkey-input-wrap">
-            <input
-              type="text"
-              id="donkey-input"
-              class="donkey-input"
-              placeholder="Type a player name to search..."
-              autocomplete="off"
-              spellcheck="false"
-            />
-            <button id="donkey-clear" class="donkey-clear hidden" aria-label="Clear donkey player">✕</button>
-            <div id="donkey-suggestions" class="donkey-suggestions hidden"></div>
+        <div class="donkey-inputs-grid">
+          <div class="donkey-input-group">
+            <span class="donkey-label">Donkey 1</span>
+            <div class="donkey-input-wrap">
+              <input type="text" id="donkey-input-0" class="donkey-input" placeholder="Search player..." autocomplete="off" spellcheck="false" />
+              <button id="donkey-clear-0" class="donkey-clear hidden" aria-label="Clear Donkey 1">✕</button>
+              <div id="donkey-suggestions-0" class="donkey-suggestions hidden"></div>
+            </div>
+          </div>
+          <div class="donkey-input-group">
+            <span class="donkey-label">Donkey 2</span>
+            <div class="donkey-input-wrap">
+              <input type="text" id="donkey-input-1" class="donkey-input" placeholder="Search player..." autocomplete="off" spellcheck="false" />
+              <button id="donkey-clear-1" class="donkey-clear hidden" aria-label="Clear Donkey 2">✕</button>
+              <div id="donkey-suggestions-1" class="donkey-suggestions hidden"></div>
+            </div>
           </div>
         </div>
         <div id="donkey-info" class="donkey-info hidden"></div>
