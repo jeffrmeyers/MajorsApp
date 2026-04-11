@@ -1,10 +1,9 @@
-// ─── Global state ────────────────────────────────────────────────────────────
+// ─── Global state ─────────────────────────────────────────────────────────────
 let autoRefreshTimer = null;
-let rawData = null;       // last API response
-let donkeyPlayer = null;  // currently selected donkey player object from allPlayers
+let rawData = null;
+let donkeyPlayers = [null, null]; // [donkey1, donkey2]
 
-// Restore saved donkey name across page loads
-const DONKEY_KEY = 'donkeyPlayerName';
+const DONKEY_KEYS = ['donkeyPlayer1Name', 'donkeyPlayer2Name'];
 
 // ─── Score formatting ─────────────────────────────────────────────────────────
 function formatScore(score) {
@@ -14,10 +13,13 @@ function formatScore(score) {
   return { display: `+${score}`, cls: 'score-over' };
 }
 
-function roundPillHTML(score, isActive, isDonkey) {
+function roundPillHTML(score, isActive, donkeyIdx) {
   if (score === null || score === undefined) return `<span class="round-pill">-</span>`;
   const label = score === 0 ? 'E' : score > 0 ? `+${score}` : score;
-  if (isDonkey) return `<span class="round-pill donkey" title="Donkey substitution">🫏 ${label}</span>`;
+  if (donkeyIdx !== null && donkeyIdx !== undefined) {
+    const num = donkeyIdx + 1;
+    return `<span class="round-pill donkey donkey-${num}" title="Donkey ${num} substitution">🫏${num} ${label}</span>`;
+  }
   if (isActive) return `<span class="round-pill active">${label}</span>`;
   const cls = score < 0 ? 'under' : score > 0 ? 'over' : '';
   return `<span class="round-pill ${cls}">${label}</span>`;
@@ -35,34 +37,56 @@ function buildRoundLabel(currentRound, roundStatuses) {
 
 // ─── Donkey substitution ──────────────────────────────────────────────────────
 /**
- * Deep-clones teams and, for every CUT player, replaces their
- * R3 and R4 with the donkey player's R3/R4. Re-sorts by new totals.
+ * For each team, cut players are assigned donkeys in roster order:
+ *   1st cut player → donkeys[0], 2nd cut player → donkeys[1]
+ * Each assigned player's R3/R4 are replaced with their donkey's scores.
  */
-function applyDonkeySubstitution(teams, donkey) {
-  if (!donkey) return teams;
+function applyDonkeySubstitution(teams, donkeys) {
+  const anyDonkey = donkeys.some(Boolean);
+  if (!anyDonkey) return teams;
 
   const result = teams.map((team) => {
-    const players = team.players.map((p) => {
-      if (!p.cut) return p;
+    // Collect cut players in roster order and pair with a donkey
+    const cutQueue = team.players
+      .map((p, i) => (p.cut ? i : null))
+      .filter((i) => i !== null);
 
-      const sub = { ...p, rounds: [...p.rounds], donkeyRounds: [false, false, false, false] };
+    // Build a map: player index → donkey
+    const assignments = new Map();
+    cutQueue.forEach((playerIdx, queuePos) => {
+      const donkey = donkeys[queuePos] ?? null;
+      if (donkey) assignments.set(playerIdx, { donkey, donkeyIdx: queuePos });
+    });
+
+    const players = team.players.map((p, i) => {
+      const assignment = assignments.get(i);
+      if (!assignment) return p;
+
+      const { donkey, donkeyIdx } = assignment;
+      const sub = {
+        ...p,
+        rounds: [...p.rounds],
+        // track which round indices were donkey-substituted and which donkey
+        donkeyRoundIdx: [null, null, null, null],
+        donkeySubstituted: true,
+        donkeyNum: donkeyIdx + 1,
+      };
+
       let added = 0;
-
       if (donkey.rounds[2] !== null && donkey.rounds[2] !== undefined) {
         sub.rounds[2] = donkey.rounds[2];
-        sub.donkeyRounds[2] = true;
+        sub.donkeyRoundIdx[2] = donkeyIdx;
         added += donkey.rounds[2];
       }
       if (donkey.rounds[3] !== null && donkey.rounds[3] !== undefined) {
         sub.rounds[3] = donkey.rounds[3];
-        sub.donkeyRounds[3] = true;
+        sub.donkeyRoundIdx[3] = donkeyIdx;
         added += donkey.rounds[3];
       }
 
       sub.topar = (p.topar || 0) + added;
       sub.toparDisplay =
         sub.topar === 0 ? 'E' : sub.topar > 0 ? `+${sub.topar}` : `${sub.topar}`;
-      sub.donkeySubstituted = true;
       return sub;
     });
 
@@ -79,7 +103,6 @@ function applyDonkeySubstitution(teams, donkey) {
     };
   });
 
-  // Re-sort and re-rank
   result.sort((a, b) => a.teamTopar - b.teamTopar);
   result.forEach((t, i) => (t.rank = i + 1));
   return result;
@@ -109,10 +132,9 @@ function renderLeaderboard(teams, roundStatuses) {
           if (rt === null) return `<td class="round-cell score-dash">-</td>`;
           const fmt = formatScore(rt);
           const isActive = ri === activeRound;
-          // Show donkey icon on R3/R4 team totals if substitution is active and relevant
-          const hasDonkeyInRound = donkeyPlayer && (ri === 2 || ri === 3) &&
-            players.some((p) => p.donkeyRounds && p.donkeyRounds[ri]);
-          const donkeyIcon = hasDonkeyInRound ? ' 🫏' : '';
+          const donkeyIcon = (ri === 2 || ri === 3) &&
+            players.some((p) => p.donkeyRoundIdx && p.donkeyRoundIdx[ri] !== null)
+            ? ' 🫏' : '';
           return `<td class="round-cell ${isActive ? 'score-even' : fmt.cls}">${fmt.display}${donkeyIcon}</td>`;
         })
         .join('');
@@ -152,12 +174,16 @@ function renderTeamCards(teams, roundStatuses) {
             ? `<span class="status-badge status-wd">WD</span>`
             : '';
           const donkeyBadge = p.donkeySubstituted
-            ? `<span class="status-badge status-donkey">🫏 SUB</span>`
+            ? `<span class="status-badge status-donkey donkey-${p.donkeyNum}">🫏${p.donkeyNum}</span>`
             : '';
 
           const rounds = p.rounds
             .map((r, ri) =>
-              roundPillHTML(r, ri === activeRound, p.donkeyRounds && p.donkeyRounds[ri])
+              roundPillHTML(
+                r,
+                ri === activeRound,
+                p.donkeyRoundIdx ? p.donkeyRoundIdx[ri] : null
+              )
             )
             .join('');
 
@@ -166,7 +192,7 @@ function renderTeamCards(teams, roundStatuses) {
             ? { display: '-', cls: 'score-dash' }
             : formatScore(p.today === 'E' ? 0 : parseInt(p.today) || 0);
 
-          const rowClass = p.donkeySubstituted ? 'donkey-row' : '';
+          const rowClass = p.donkeySubstituted ? `donkey-row donkey-row-${p.donkeyNum}` : '';
 
           return `
             <tr class="${rowClass}">
@@ -212,185 +238,192 @@ function renderTeamCards(teams, roundStatuses) {
     .join('');
 }
 
-function renderDonkeyInfo(donkey) {
+function renderDonkeyInfo() {
   const infoEl = document.getElementById('donkey-info');
-  if (!donkey) {
+  const activeDonkeys = donkeyPlayers.filter(Boolean);
+
+  if (activeDonkeys.length === 0) {
     infoEl.classList.add('hidden');
     infoEl.innerHTML = '';
     return;
   }
 
-  // Count how many fantasy players are CUT
-  const cutCount = rawData
-    ? rawData.teams.flatMap((t) => t.players).filter((p) => p.cut).length
-    : 0;
+  const cards = donkeyPlayers
+    .map((donkey, idx) => {
+      if (!donkey) return '';
 
-  const r3Fmt = formatScore(donkey.rounds[2]);
-  const r4Fmt = formatScore(donkey.rounds[3]);
+      // Count how many fantasy players are assigned this donkey
+      const appliedCount = rawData
+        ? rawData.teams.reduce((total, team) => {
+            const cutPlayers = team.players.filter((p) => p.cut);
+            return total + (cutPlayers[idx] ? 1 : 0);
+          }, 0)
+        : 0;
 
-  const r3Display =
-    donkey.rounds[2] !== null && donkey.rounds[2] !== undefined
-      ? `<span class="donkey-round-val ${r3Fmt.cls}">${r3Fmt.display}</span>`
-      : `<span class="donkey-round-val score-dash">—</span>`;
-  const r4Display =
-    donkey.rounds[3] !== null && donkey.rounds[3] !== undefined
-      ? `<span class="donkey-round-val ${r4Fmt.cls}">${r4Fmt.display}</span>`
-      : `<span class="donkey-round-val score-dash">—</span>`;
+      const r3Fmt = formatScore(donkey.rounds[2]);
+      const r4Fmt = formatScore(donkey.rounds[3]);
 
-  const statusCls = donkey.status === 'CUT' ? 'score-over' : 'score-even';
-  const statusLabel =
-    donkey.status === 'CUT' ? 'Missed cut' : donkey.status === 'WD' ? 'Withdrawn' : `${donkey.pos}`;
+      const r3Display =
+        donkey.rounds[2] !== null && donkey.rounds[2] !== undefined
+          ? `<span class="donkey-round-val ${r3Fmt.cls}">${r3Fmt.display}</span>`
+          : `<span class="donkey-round-val score-dash">—</span>`;
+      const r4Display =
+        donkey.rounds[3] !== null && donkey.rounds[3] !== undefined
+          ? `<span class="donkey-round-val ${r4Fmt.cls}">${r4Fmt.display}</span>`
+          : `<span class="donkey-round-val score-dash">—</span>`;
 
-  infoEl.innerHTML = `
-    <div class="donkey-info-inner">
-      <div class="donkey-player-name">${donkey.name}
-        <span class="donkey-player-pos ${statusCls}">${statusLabel}</span>
-      </div>
-      <div class="donkey-scores">
-        <div class="donkey-score-item">
-          <span class="donkey-score-label">R3</span>
-          ${r3Display}
-        </div>
-        <div class="donkey-score-item">
-          <span class="donkey-score-label">R4</span>
-          ${r4Display}
-        </div>
-        <div class="donkey-score-item">
-          <span class="donkey-score-label">Applied to</span>
-          <span class="donkey-round-val">${cutCount} player${cutCount !== 1 ? 's' : ''}</span>
-        </div>
-      </div>
-      ${donkey.status === 'CUT' ? `<p class="donkey-warning">⚠️ This player also missed the cut — R3 &amp; R4 scores will be applied once available.</p>` : ''}
-    </div>`;
+      const statusCls = donkey.status === 'CUT' ? 'score-over' : 'score-even';
+      const statusLabel =
+        donkey.status === 'CUT' ? 'Missed cut' : donkey.status === 'WD' ? 'Withdrawn' : donkey.pos || '';
+
+      const warning = donkey.status === 'CUT'
+        ? `<p class="donkey-warning">⚠️ This player also missed the cut — scores apply once available.</p>`
+        : '';
+
+      return `
+        <div class="donkey-info-card donkey-info-card-${idx + 1}">
+          <div class="donkey-info-card-header">
+            <span class="donkey-info-num">🫏${idx + 1}</span>
+            <span class="donkey-info-card-name">${donkey.name}</span>
+            <span class="donkey-player-pos ${statusCls}">${statusLabel}</span>
+          </div>
+          <div class="donkey-scores">
+            <div class="donkey-score-item">
+              <span class="donkey-score-label">R3</span>${r3Display}
+            </div>
+            <div class="donkey-score-item">
+              <span class="donkey-score-label">R4</span>${r4Display}
+            </div>
+            <div class="donkey-score-item">
+              <span class="donkey-score-label">Applied to</span>
+              <span class="donkey-round-val">${appliedCount} player${appliedCount !== 1 ? 's' : ''}</span>
+            </div>
+          </div>
+          ${warning}
+        </div>`;
+    })
+    .join('');
+
+  infoEl.innerHTML = `<div class="donkey-info-cards">${cards}</div>`;
   infoEl.classList.remove('hidden');
 }
 
 // ─── Donkey autocomplete ──────────────────────────────────────────────────────
 function initDonkeyInput() {
-  const input = document.getElementById('donkey-input');
-  const clearBtn = document.getElementById('donkey-clear');
-  const suggestions = document.getElementById('donkey-suggestions');
+  [0, 1].forEach((idx) => {
+    const input = document.getElementById(`donkey-input-${idx}`);
+    const clearBtn = document.getElementById(`donkey-clear-${idx}`);
+    const suggestions = document.getElementById(`donkey-suggestions-${idx}`);
 
-  input.addEventListener('input', () => {
-    const query = input.value.trim().toLowerCase();
-    if (query.length < 2 || !rawData?.allPlayers) {
-      suggestions.classList.add('hidden');
-      suggestions.innerHTML = '';
-      return;
-    }
+    input.addEventListener('input', () => {
+      const query = input.value.trim().toLowerCase();
+      if (query.length < 2 || !rawData?.allPlayers) {
+        suggestions.classList.add('hidden');
+        suggestions.innerHTML = '';
+        return;
+      }
 
-    const matches = rawData.allPlayers.filter((p) =>
-      p.name.toLowerCase().includes(query)
-    );
+      const matches = rawData.allPlayers.filter((p) =>
+        p.name.toLowerCase().includes(query)
+      );
 
-    if (matches.length === 0) {
-      suggestions.innerHTML = `<div class="donkey-suggestion-item no-match">No players found</div>`;
+      if (matches.length === 0) {
+        suggestions.innerHTML = `<div class="donkey-suggestion-item no-match">No players found</div>`;
+        suggestions.classList.remove('hidden');
+        return;
+      }
+
+      suggestions.innerHTML = matches
+        .slice(0, 8)
+        .map(
+          (p) => `
+          <div class="donkey-suggestion-item" data-name="${p.name}">
+            <span class="suggestion-name">${p.name}</span>
+            <span class="suggestion-meta ${p.status === 'CUT' ? 'score-over' : 'score-even'}">
+              ${p.status === 'CUT' ? 'CUT' : p.pos || ''}
+            </span>
+          </div>`
+        )
+        .join('');
       suggestions.classList.remove('hidden');
-      return;
-    }
 
-    suggestions.innerHTML = matches
-      .slice(0, 8)
-      .map(
-        (p) => `
-        <div class="donkey-suggestion-item" data-name="${p.name}">
-          <span class="suggestion-name">${p.name}</span>
-          <span class="suggestion-meta ${p.status === 'CUT' ? 'score-over' : 'score-even'}">
-            ${p.status === 'CUT' ? 'CUT' : p.pos || ''}
-          </span>
-        </div>`
-      )
-      .join('');
-    suggestions.classList.remove('hidden');
-
-    suggestions.querySelectorAll('.donkey-suggestion-item[data-name]').forEach((el) => {
-      el.addEventListener('mousedown', (e) => {
-        e.preventDefault();
-        selectDonkeyPlayer(el.dataset.name);
+      suggestions.querySelectorAll('.donkey-suggestion-item[data-name]').forEach((el) => {
+        el.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          selectDonkeyPlayer(el.dataset.name, idx);
+        });
       });
     });
-  });
 
-  // Hide suggestions on blur
-  input.addEventListener('blur', () => {
-    setTimeout(() => suggestions.classList.add('hidden'), 150);
-  });
+    input.addEventListener('blur', () => {
+      setTimeout(() => suggestions.classList.add('hidden'), 150);
+    });
 
-  input.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') {
-      suggestions.classList.add('hidden');
-      input.blur();
-    }
-    if (e.key === 'Enter') {
-      const first = suggestions.querySelector('.donkey-suggestion-item[data-name]');
-      if (first) {
-        e.preventDefault();
-        selectDonkeyPlayer(first.dataset.name);
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        suggestions.classList.add('hidden');
+        input.blur();
       }
-    }
-  });
+      if (e.key === 'Enter') {
+        const first = suggestions.querySelector('.donkey-suggestion-item[data-name]');
+        if (first) {
+          e.preventDefault();
+          selectDonkeyPlayer(first.dataset.name, idx);
+        }
+      }
+    });
 
-  clearBtn.addEventListener('click', () => {
-    clearDonkeyPlayer();
+    clearBtn.addEventListener('click', () => clearDonkeyPlayer(idx));
   });
 }
 
-function selectDonkeyPlayer(name) {
+function selectDonkeyPlayer(name, idx) {
   if (!rawData?.allPlayers) return;
   const player = rawData.allPlayers.find((p) => p.name === name);
   if (!player) return;
 
-  donkeyPlayer = player;
-  localStorage.setItem(DONKEY_KEY, name);
+  donkeyPlayers[idx] = player;
+  localStorage.setItem(DONKEY_KEYS[idx], name);
 
-  const input = document.getElementById('donkey-input');
-  const clearBtn = document.getElementById('donkey-clear');
-  const suggestions = document.getElementById('donkey-suggestions');
-
-  input.value = name;
-  input.blur();
-  clearBtn.classList.remove('hidden');
-  suggestions.classList.add('hidden');
+  document.getElementById(`donkey-input-${idx}`).value = name;
+  document.getElementById(`donkey-input-${idx}`).blur();
+  document.getElementById(`donkey-clear-${idx}`).classList.remove('hidden');
+  document.getElementById(`donkey-suggestions-${idx}`).classList.add('hidden');
 
   rerenderWithDonkey();
 }
 
-function clearDonkeyPlayer() {
-  donkeyPlayer = null;
-  localStorage.removeItem(DONKEY_KEY);
+function clearDonkeyPlayer(idx) {
+  donkeyPlayers[idx] = null;
+  localStorage.removeItem(DONKEY_KEYS[idx]);
 
-  const input = document.getElementById('donkey-input');
-  const clearBtn = document.getElementById('donkey-clear');
-
-  input.value = '';
-  clearBtn.classList.add('hidden');
-  document.getElementById('donkey-info').classList.add('hidden');
+  document.getElementById(`donkey-input-${idx}`).value = '';
+  document.getElementById(`donkey-clear-${idx}`).classList.add('hidden');
 
   rerenderWithDonkey();
 }
 
 function restoreDonkeyFromStorage() {
-  const saved = localStorage.getItem(DONKEY_KEY);
-  if (saved && rawData?.allPlayers) {
-    const player = rawData.allPlayers.find((p) => p.name === saved);
-    if (player) {
-      donkeyPlayer = player;
-      const input = document.getElementById('donkey-input');
-      const clearBtn = document.getElementById('donkey-clear');
-      input.value = saved;
-      clearBtn.classList.remove('hidden');
+  DONKEY_KEYS.forEach((key, idx) => {
+    const saved = localStorage.getItem(key);
+    if (saved && rawData?.allPlayers) {
+      const player = rawData.allPlayers.find((p) => p.name === saved);
+      if (player) {
+        donkeyPlayers[idx] = player;
+        document.getElementById(`donkey-input-${idx}`).value = saved;
+        document.getElementById(`donkey-clear-${idx}`).classList.remove('hidden');
+      }
     }
-  }
+  });
 }
 
 // ─── Render cycle ─────────────────────────────────────────────────────────────
 function rerenderWithDonkey() {
   if (!rawData) return;
-  const { roundStatuses } = rawData;
-  const effectiveTeams = applyDonkeySubstitution(rawData.teams, donkeyPlayer);
-  renderLeaderboard(effectiveTeams, roundStatuses);
-  renderTeamCards(effectiveTeams, roundStatuses);
-  renderDonkeyInfo(donkeyPlayer);
+  const effectiveTeams = applyDonkeySubstitution(rawData.teams, donkeyPlayers);
+  renderLeaderboard(effectiveTeams, rawData.roundStatuses);
+  renderTeamCards(effectiveTeams, rawData.roundStatuses);
+  renderDonkeyInfo();
 }
 
 // ─── Data loading ─────────────────────────────────────────────────────────────
@@ -415,9 +448,7 @@ async function loadScores() {
     const now = new Date();
     lastUpdatedEl.textContent = `Updated ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
 
-    // Restore donkey player from storage now that allPlayers is available
     restoreDonkeyFromStorage();
-
     rerenderWithDonkey();
 
     loading.classList.add('hidden');
