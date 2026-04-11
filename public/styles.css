@@ -162,7 +162,7 @@ main {
   margin-left: 8px;
 }
 
-/* SCROLL WRAPPER â€” used inside both the leaderboard and team cards */
+/* SCROLL WRAPPER — used inside both the leaderboard and team cards */
 .table-scroll {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
@@ -514,7 +514,7 @@ main {
   color: var(--gray-600);
 }
 
-/* DONKEY PLAYER SECTION */
+/* DONKEY PLAYERS SECTION */
 #donkey-section {
   margin-bottom: 0;
 }
@@ -534,16 +534,35 @@ main {
   line-height: 1.5;
 }
 
-.donkey-input-row {
+/* Two-column input grid */
+.donkey-inputs-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+@media (max-width: 600px) {
+  .donkey-inputs-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.donkey-input-group {
   display: flex;
-  align-items: flex-start;
-  gap: 12px;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.donkey-label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--gray-600);
 }
 
 .donkey-input-wrap {
   position: relative;
-  flex: 1;
-  max-width: 420px;
 }
 
 .donkey-input {
@@ -555,7 +574,7 @@ main {
   outline: none;
   background: var(--white);
   color: var(--gray-800);
-  transition: border-color 0.2s;
+  transition: border-color 0.2s, box-shadow 0.2s;
   font-family: inherit;
 }
 
@@ -634,37 +653,68 @@ main {
   flex-shrink: 0;
 }
 
-/* Selected donkey player info panel */
+/* Donkey info panel */
 .donkey-info {
   margin-top: 16px;
   padding-top: 16px;
   border-top: 1px solid var(--gray-200);
 }
 
-.donkey-info-inner {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-  flex-wrap: wrap;
+.donkey-info-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
 }
 
-.donkey-player-name {
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--gray-800);
+@media (max-width: 600px) {
+  .donkey-info-cards {
+    grid-template-columns: 1fr;
+  }
+}
+
+.donkey-info-card {
+  border-radius: 8px;
+  padding: 12px 16px;
+  border: 1px solid var(--gray-200);
+}
+
+.donkey-info-card-1 {
+  background: #fffbeb;
+  border-color: #fde68a;
+}
+
+.donkey-info-card-2 {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+}
+
+.donkey-info-card-header {
   display: flex;
   align-items: center;
   gap: 8px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.donkey-info-num {
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.donkey-info-card-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--gray-800);
 }
 
 .donkey-player-pos {
-  font-size: 13px;
-  font-weight: 500;
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .donkey-scores {
   display: flex;
-  gap: 16px;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
@@ -672,9 +722,9 @@ main {
   display: flex;
   align-items: center;
   gap: 6px;
-  background: var(--gray-100);
-  border-radius: 8px;
-  padding: 6px 12px;
+  background: rgba(255,255,255,0.7);
+  border-radius: 6px;
+  padding: 5px 10px;
 }
 
 .donkey-score-label {
@@ -691,34 +741,51 @@ main {
 }
 
 .donkey-warning {
-  width: 100%;
-  font-size: 13px;
+  font-size: 12px;
   color: #92400e;
   background: #fef3c7;
   border-radius: 6px;
-  padding: 8px 12px;
+  padding: 6px 10px;
   margin-top: 8px;
 }
 
-/* Donkey round pill */
-.round-pill.donkey {
+/* Round pills — donkey 1 = amber, donkey 2 = blue */
+.round-pill.donkey.donkey-1 {
   background: #fef3c7;
   color: #92400e;
-  font-size: 11px;
 }
 
-/* Donkey substitution row highlight */
-.donkey-row {
+.round-pill.donkey.donkey-2 {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+/* Substituted row highlights */
+.donkey-row-1 {
   background: #fffbeb !important;
 }
 
-.donkey-row:hover {
+.donkey-row-1:hover {
   background: #fef3c7 !important;
 }
 
-.status-donkey {
+.donkey-row-2 {
+  background: #eff6ff !important;
+}
+
+.donkey-row-2:hover {
+  background: #dbeafe !important;
+}
+
+/* Substitution badges */
+.status-donkey.donkey-1 {
   background: #fef3c7;
   color: #92400e;
+}
+
+.status-donkey.donkey-2 {
+  background: #dbeafe;
+  color: #1e40af;
 }
 
 /* FOOTER */
