@@ -1,10 +1,5 @@
 {
   "outputDirectory": "public",
-  "functions": {
-    "api/scores.py": {
-      "runtime": "python3.9"
-    }
-  },
   "rewrites": [
     { "source": "/api/scores", "destination": "/api/scores.py" },
     { "source": "/(.*)", "destination": "/$1" }
