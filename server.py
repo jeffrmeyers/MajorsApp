@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Masters Fantasy League Tracker
+Majors Fantasy League Tracker
 Run: python3 server.py
 Then open http://localhost:3000 in your browser.
 """
@@ -8,11 +8,15 @@ Then open http://localhost:3000 in your browser.
 import json
 import urllib.request
 import urllib.error
+from urllib.parse import urlparse, parse_qs
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
 
 PORT = 3000
 MASTERS_API = 'https://www.masters.com/en_US/scores/feeds/2026/scores.json'
+PGA_SCOREBOARD_API = 'https://site.api.espn.com/apis/site/v2/sports/golf/pga/scoreboard'
+PGA_EVENT_API = 'https://sports.core.api.espn.com/v2/sports/golf/leagues/pga/events/401811947/competitions/401811947?lang=en&region=us'
+PGA_EVENT_ID = '401811947'
 PUBLIC_DIR = Path(__file__).parent / 'public'
 
 TEAMS = {
@@ -85,16 +89,73 @@ def parse_topar(topar):
         return 0
 
 
-def build_scores_response():
-    req = urllib.request.Request(
-        MASTERS_API,
-        headers={
-            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Referer': 'https://www.masters.com/',
-        },
-    )
-    with urllib.request.urlopen(req, timeout=10) as resp:
-        raw = json.loads(resp.read().decode('utf-8'))
+def fetch_json(url, referer=''):
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    }
+    if referer:
+        headers['Referer'] = referer
+    req = urllib.request.Request(url, headers=headers)
+    with urllib.request.urlopen(req, timeout=12) as resp:
+        return json.loads(resp.read().decode('utf-8'))
+
+
+def format_team_total(score):
+    if score == 0:
+        return 'E'
+    if score > 0:
+        return f'+{score}'
+    return str(score)
+
+
+def build_round_statuses_from_state(state, period):
+    statuses = ['N', 'N', 'N', 'N']
+    if state == 'post':
+        return ['F', 'F', 'F', 'F']
+    if state == 'in':
+        idx = max(0, min((period or 1) - 1, 3))
+        for i in range(idx):
+            statuses[i] = 'F'
+        statuses[idx] = 'A'
+    return statuses
+
+
+def parse_espn_round_value(display):
+    if display is None:
+        return None
+    text = str(display).strip().upper()
+    if text == '' or text == '-':
+        return None
+    if text == 'E':
+        return 0
+    try:
+        return int(text)
+    except ValueError:
+        return None
+
+
+def build_empty_response():
+    team_data = []
+    for i, team_name in enumerate(TEAMS.keys()):
+        team_data.append({
+            'name': team_name,
+            'players': [],
+            'teamTopar': 0,
+            'teamToparDisplay': 'E',
+            'rank': i + 1,
+        })
+
+    return {
+        'teams': team_data,
+        'lastUpdated': '',
+        'currentRound': 1,
+        'roundStatuses': ['N', 'N', 'N', 'N'],
+        'allPlayers': [],
+    }
+
+
+def build_masters_scores_response():
+    raw = fetch_json(MASTERS_API, referer='https://www.masters.com/')
 
     data = raw['data']
     players = data['player']
@@ -212,12 +273,149 @@ def build_scores_response():
     all_players_out.sort(key=lambda p: p['name'])
 
     return {
+        'tournament': 'masters',
+        'tournamentLabel': 'The Masters',
         'teams': team_data,
         'lastUpdated': wall_clock,
         'currentRound': current_round_out,
         'roundStatuses': round_statuses,
         'allPlayers': all_players_out,
     }
+
+
+def build_pga_scores_response():
+    scoreboard = fetch_json(PGA_SCOREBOARD_API, referer='https://www.espn.com/golf/')
+    events = scoreboard.get('events', [])
+    event = next((e for e in events if e.get('id') == PGA_EVENT_ID), None)
+
+    if not event:
+        out = build_empty_response()
+        out['tournament'] = 'pga'
+        out['tournamentLabel'] = 'PGA Championship'
+        out['message'] = 'PGA Championship has not started yet.'
+        try:
+            event_meta = fetch_json(PGA_EVENT_API, referer='https://www.espn.com/golf/')
+            status_ref = event_meta.get('status', {}).get('$ref')
+            if status_ref:
+                status = fetch_json(status_ref)
+                detail = status.get('type', {}).get('detail', '')
+                if detail:
+                    out['message'] = f'PGA Championship starts {detail}.'
+        except Exception:
+            pass
+        return out
+
+    competition = (event.get('competitions') or [{}])[0]
+    competitors = competition.get('competitors') or []
+    event_status = event.get('status', {}).get('type', {})
+    state = event_status.get('state', 'pre')
+    current_round = max(1, min(4, int(event.get('status', {}).get('period') or 1)))
+    round_statuses = build_round_statuses_from_state(state, current_round)
+
+    player_map = {}
+    for idx, c in enumerate(competitors):
+        athlete = c.get('athlete') or {}
+        full_name = athlete.get('fullName') or athlete.get('displayName')
+        if not full_name:
+            continue
+        rounds = [None, None, None, None]
+        lines = c.get('linescores') or []
+        for ls in lines:
+            period = ls.get('period')
+            if not period or period < 1 or period > 4:
+                continue
+            rounds[period - 1] = parse_espn_round_value(ls.get('displayValue'))
+        for i, rs in enumerate(round_statuses):
+            if rs == 'N':
+                rounds[i] = None
+        today_val = rounds[current_round - 1] if 1 <= current_round <= 4 else None
+        round_detail = next((ls for ls in lines if ls.get('period') == current_round), None)
+        holes_played = len((round_detail or {}).get('linescores') or [])
+        score_display = c.get('score', 'E') or 'E'
+        player_status = 'CUT' if str(score_display).upper() == 'CUT' else ''
+        player_map[full_name] = {
+            'pos': str(idx + 1),
+            'topar': parse_topar(score_display),
+            'toparDisplay': score_display,
+            'total': None,
+            'status': player_status,
+            'thru': str(holes_played) if holes_played > 0 else '-',
+            'today': 'E' if today_val == 0 else (str(today_val) if today_val is not None else '-'),
+            'rounds': rounds,
+            'notFound': False,
+            'cut': player_status == 'CUT',
+            'wd': False,
+            'active': state == 'in',
+        }
+
+    team_data = []
+    for team_name, roster in TEAMS.items():
+        player_results = []
+        for player_name in roster:
+            api_name = NAME_ALIASES.get(player_name, player_name)
+            p = player_map.get(api_name)
+            if not p:
+                player_results.append({
+                    'name': player_name,
+                    'pos': 'N/A',
+                    'topar': None,
+                    'toparDisplay': 'N/A',
+                    'total': None,
+                    'status': '',
+                    'thru': '-',
+                    'today': '-',
+                    'rounds': [None, None, None, None],
+                    'notFound': True,
+                    'cut': False,
+                    'wd': False,
+                    'active': False,
+                })
+            else:
+                player_results.append({'name': player_name, **p})
+
+        team_topar = sum(
+            (r['topar'] or 0)
+            for r in player_results
+            if not r['notFound'] and not r['wd']
+        )
+        team_data.append({
+            'name': team_name,
+            'players': player_results,
+            'teamTopar': team_topar,
+            'teamToparDisplay': format_team_total(team_topar),
+        })
+
+    team_data.sort(key=lambda t: t['teamTopar'])
+    for i, t in enumerate(team_data):
+        t['rank'] = i + 1
+
+    all_players_out = []
+    for full_name, p in player_map.items():
+        all_players_out.append({
+            'name': full_name,
+            'rounds': p['rounds'],
+            'status': p['status'],
+            'topar': p['topar'],
+            'pos': p['pos'],
+        })
+    all_players_out.sort(key=lambda p: p['name'])
+
+    return {
+        'tournament': 'pga',
+        'tournamentLabel': 'PGA Championship',
+        'teams': team_data,
+        'lastUpdated': scoreboard.get('day', {}).get('date', ''),
+        'currentRound': current_round,
+        'roundStatuses': round_statuses,
+        'allPlayers': all_players_out,
+    }
+
+
+def build_scores_response(tournament='masters'):
+    tournament_key = (tournament or 'masters').lower()
+    if tournament_key == 'pga':
+        return build_pga_scores_response()
+    return build_masters_scores_response()
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -244,11 +442,14 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(data)
 
     def do_GET(self):
-        path = self.path.split('?')[0]
+        parsed = urlparse(self.path)
+        path = parsed.path
 
         if path == '/api/scores':
             try:
-                result = build_scores_response()
+                query = parse_qs(parsed.query)
+                tournament = query.get('tournament', ['masters'])[0]
+                result = build_scores_response(tournament)
                 self.send_json(result)
             except Exception as e:
                 print(f'  ERROR: {e}')

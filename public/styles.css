@@ -3,8 +3,10 @@
   --green-mid: #2d6a4f;
   --green-light: #40916c;
   --green-pale: #d8f3dc;
+  --green-masters: #0B3D2E;
   --gold: #c9a84c;
   --gold-light: #f0d070;
+  --yellow-masters: #F2A900;
   --white: #ffffff;
   --off-white: #f8f5ef;
   --gray-50: #f9fafb;
@@ -100,9 +102,32 @@ header h1 {
   flex-wrap: wrap;
 }
 
+.tournament-tabs {
+  display: inline-flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.tournament-tab {
+  border: 1px solid rgba(255,255,255,0.35);
+  background: rgba(255,255,255,0.1);
+  color: var(--white);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.tournament-tab.active {
+  background: var(--gold);
+  color: var(--green-masters);
+  border-color: var(--gold);
+}
+
 .round-badge {
   background: var(--gold);
-  color: var(--green-dark);
+  color: var(--green-masters);
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 1.5px;
@@ -525,6 +550,40 @@ main {
   box-shadow: var(--shadow);
   padding: 20px 24px;
   border-left: 4px solid var(--gold);
+}
+
+.history-list {
+  background: var(--white);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 8px 16px;
+}
+
+.history-item {
+  display: grid;
+  grid-template-columns: 140px 1fr 60px;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--gray-100);
+  font-size: 14px;
+}
+
+.history-item:last-child {
+  border-bottom: none;
+}
+
+.history-time {
+  color: var(--gray-600);
+}
+
+.history-leader {
+  font-weight: 700;
+}
+
+.history-score {
+  text-align: right;
+  font-weight: 800;
 }
 
 .donkey-description {
