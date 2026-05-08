@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Masters Fantasy League 2026</title>
+  <title>Majors Fantasy League 2026</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -11,10 +11,14 @@
     <div class="header-inner">
       <div class="flag-line">
         <span class="flag-icon">⛳</span>
-        <span class="tournament-label">THE MASTERS · 2026</span>
+        <span id="tournament-label" class="tournament-label">THE MASTERS · 2026</span>
         <span class="flag-icon">⛳</span>
       </div>
       <h1>Fantasy League Leaderboard</h1>
+      <div class="tournament-tabs">
+        <button id="tab-masters" class="tournament-tab active" data-tournament="masters">Masters</button>
+        <button id="tab-pga" class="tournament-tab" data-tournament="pga">PGA Championship</button>
+      </div>
       <div id="status-bar">
         <span id="round-badge" class="round-badge">Round 1</span>
         <span id="last-updated" class="last-updated">Fetching scores...</span>
@@ -51,6 +55,10 @@
         <div id="donkey-info" class="donkey-info hidden"></div>
       </div>
     </section>
+    <section id="history-section">
+      <h2 class="section-title">Recent History</h2>
+      <div id="history-list" class="history-list"></div>
+    </section>
 
     <section id="team-leaderboard">
       <h2 class="section-title">Team Standings</h2>
@@ -85,7 +93,7 @@
   </main>
 
   <footer>
-    <p>Scores sourced from <a href="https://www.masters.com" target="_blank">masters.com</a> · Auto-refreshes every 60 seconds</p>
+    <p id="footer-source">Scores sourced from <a href="https://www.masters.com" target="_blank">masters.com</a> · Auto-refreshes every 60 seconds</p>
   </footer>
 
   <script src="app.js"></script>
