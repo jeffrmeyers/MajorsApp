@@ -1,7 +1,7 @@
 {
   "name": "masters-fantasy-tracker",
   "version": "1.0.0",
-  "description": "Fantasy golf league tracker for The Masters",
+  "description": "Fantasy golf league tracker",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
