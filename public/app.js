@@ -2,8 +2,27 @@
 let autoRefreshTimer = null;
 let rawData = null;
 let donkeyPlayers = [null, null]; // [donkey1, donkey2]
+let activeTournament = localStorage.getItem('activeTournament') || 'masters';
 
-const DONKEY_KEYS = ['donkeyPlayer1Name', 'donkeyPlayer2Name'];
+const TOURNAMENTS = {
+  masters: {
+    label: 'THE MASTERS · 2026',
+    sourceHtml: 'Scores sourced from <a href="https://www.masters.com" target="_blank">masters.com</a> · Auto-refreshes every 60 seconds',
+  },
+  pga: {
+    label: 'PGA CHAMPIONSHIP · 2026',
+    sourceHtml: 'Scores sourced from <a href="https://www.espn.com/golf/leaderboard?tournamentId=401811947" target="_blank">ESPN PGA leaderboard feed</a> · Auto-refreshes every 60 seconds',
+  },
+};
+
+function donkeyKeysFor(tournament) {
+  const prefix = `${tournament}:`;
+  return [`${prefix}donkeyPlayer1Name`, `${prefix}donkeyPlayer2Name`];
+}
+
+function historyKeyFor(tournament) {
+  return `${tournament}:history`;
+}
 
 // ─── Score formatting ─────────────────────────────────────────────────────────
 function formatScore(score) {
@@ -308,6 +327,42 @@ function renderDonkeyInfo() {
   infoEl.classList.remove('hidden');
 }
 
+function renderHistory(teams) {
+  const historyEl = document.getElementById('history-list');
+  const history = JSON.parse(localStorage.getItem(historyKeyFor(activeTournament)) || '[]');
+  if (history.length === 0) {
+    historyEl.innerHTML = '<div class="history-item">No snapshots yet. History is saved each time scores refresh.</div>';
+    return;
+  }
+
+  historyEl.innerHTML = history
+    .slice(0, 10)
+    .reverse()
+    .map((entry) => {
+      const leader = entry.leader || 'N/A';
+      const leaderScore = entry.leaderScore || 'E';
+      return `<div class="history-item">
+        <span class="history-time">${entry.time}</span>
+        <span class="history-leader">${leader}</span>
+        <span class="history-score">${leaderScore}</span>
+      </div>`;
+    })
+    .join('');
+}
+
+function saveHistorySnapshot(teams) {
+  if (!teams || teams.length === 0) return;
+  const history = JSON.parse(localStorage.getItem(historyKeyFor(activeTournament)) || '[]');
+  const leader = teams[0];
+  const now = new Date();
+  history.push({
+    time: now.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
+    leader: leader?.name || 'N/A',
+    leaderScore: leader?.teamToparDisplay || 'E',
+  });
+  localStorage.setItem(historyKeyFor(activeTournament), JSON.stringify(history.slice(-50)));
+}
+
 // ─── Donkey autocomplete ──────────────────────────────────────────────────────
 function initDonkeyInput() {
   [0, 1].forEach((idx) => {
@@ -383,7 +438,8 @@ function selectDonkeyPlayer(name, idx) {
   if (!player) return;
 
   donkeyPlayers[idx] = player;
-  localStorage.setItem(DONKEY_KEYS[idx], name);
+  const keys = donkeyKeysFor(activeTournament);
+  localStorage.setItem(keys[idx], name);
 
   document.getElementById(`donkey-input-${idx}`).value = name;
   document.getElementById(`donkey-input-${idx}`).blur();
@@ -395,7 +451,8 @@ function selectDonkeyPlayer(name, idx) {
 
 function clearDonkeyPlayer(idx) {
   donkeyPlayers[idx] = null;
-  localStorage.removeItem(DONKEY_KEYS[idx]);
+  const keys = donkeyKeysFor(activeTournament);
+  localStorage.removeItem(keys[idx]);
 
   document.getElementById(`donkey-input-${idx}`).value = '';
   document.getElementById(`donkey-clear-${idx}`).classList.add('hidden');
@@ -404,7 +461,9 @@ function clearDonkeyPlayer(idx) {
 }
 
 function restoreDonkeyFromStorage() {
-  DONKEY_KEYS.forEach((key, idx) => {
+  donkeyPlayers = [null, null];
+  const keys = donkeyKeysFor(activeTournament);
+  keys.forEach((key, idx) => {
     const saved = localStorage.getItem(key);
     if (saved && rawData?.allPlayers) {
       const player = rawData.allPlayers.find((p) => p.name === saved);
@@ -424,6 +483,7 @@ function rerenderWithDonkey() {
   renderLeaderboard(effectiveTeams, rawData.roundStatuses);
   renderTeamCards(effectiveTeams, rawData.roundStatuses);
   renderDonkeyInfo();
+  renderHistory(effectiveTeams);
 }
 
 // ─── Data loading ─────────────────────────────────────────────────────────────
@@ -437,7 +497,7 @@ async function loadScores() {
   table.classList.add('hidden');
 
   try {
-    const res = await fetch('/api/scores');
+    const res = await fetch(`/api/scores?tournament=${activeTournament}`);
     if (!res.ok) throw new Error(`Server error ${res.status}`);
     const data = await res.json();
     if (data.error) throw new Error(data.error);
@@ -445,11 +505,15 @@ async function loadScores() {
     rawData = data;
 
     roundBadge.textContent = buildRoundLabel(data.currentRound, data.roundStatuses);
+    if (data.message) {
+      roundBadge.textContent = 'Awaiting first round';
+    }
     const now = new Date();
     lastUpdatedEl.textContent = `Updated ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
 
     restoreDonkeyFromStorage();
     rerenderWithDonkey();
+    saveHistorySnapshot(applyDonkeySubstitution(data.teams || [], donkeyPlayers));
 
     loading.classList.add('hidden');
     table.classList.remove('hidden');
@@ -467,7 +531,7 @@ async function loadScores() {
     if (!existing) {
       const errBox = document.createElement('div');
       errBox.className = 'error-box';
-      errBox.textContent = `Could not load scores: ${err.message}. Retrying in 60 seconds...`;
+      errBox.textContent = `Could not load ${activeTournament.toUpperCase()} scores: ${err.message}. Retrying in 60 seconds...`;
       wrap.prepend(errBox);
     }
   }
@@ -486,7 +550,31 @@ function scrollToTeam(name) {
   }
 }
 
+function setActiveTournament(tournament) {
+  if (!TOURNAMENTS[tournament]) return;
+  activeTournament = tournament;
+  localStorage.setItem('activeTournament', tournament);
+
+  document.querySelectorAll('.tournament-tab').forEach((btn) => {
+    const isActive = btn.dataset.tournament === tournament;
+    btn.classList.toggle('active', isActive);
+  });
+
+  const cfg = TOURNAMENTS[tournament];
+  document.getElementById('tournament-label').textContent = cfg.label;
+  document.getElementById('footer-source').innerHTML = cfg.sourceHtml;
+
+  const wrap = document.getElementById('leaderboard-table-wrap');
+  const existing = wrap.querySelector('.error-box');
+  if (existing) existing.remove();
+
+  loadScores();
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   initDonkeyInput();
-  loadScores();
+  document.querySelectorAll('.tournament-tab').forEach((btn) => {
+    btn.addEventListener('click', () => setActiveTournament(btn.dataset.tournament));
+  });
+  setActiveTournament(activeTournament);
 });
