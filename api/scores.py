@@ -281,9 +281,10 @@ def build_pga_scores_response():
 
     competition = (event.get('competitions') or [{}])[0]
     competitors = competition.get('competitors') or []
-    event_status = event.get('status', {}).get('type', {})
-    state = event_status.get('state', 'pre')
-    current_round = max(1, min(4, int(event.get('status', {}).get('period') or 1)))
+    status = competition.get('status') or event.get('status', {})
+    status_type = status.get('type') or event.get('status', {}).get('type', {})
+    state = status_type.get('state', 'pre')
+    current_round = max(1, min(4, int(status.get('period') or 1)))
     round_statuses = build_round_statuses_from_state(state, current_round)
 
     player_map = {}

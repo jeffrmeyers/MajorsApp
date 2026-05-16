@@ -242,8 +242,9 @@ async function buildPgaScoresResponse() {
 
   const competition = (event.competitions || [{}])[0];
   const competitors = competition.competitors || [];
-  const state = event.status?.type?.state || 'pre';
-  const currentRound = Math.max(1, Math.min(4, parseInt(event.status?.period, 10) || 1));
+  const status = competition.status || event.status || {};
+  const state = status.type?.state || event.status?.type?.state || 'pre';
+  const currentRound = Math.max(1, Math.min(4, parseInt(status.period, 10) || 1));
   const roundStatuses = buildRoundStatusesFromState(state, currentRound);
   const playerMap = {};
   const allPlayers = [];
