@@ -250,6 +250,39 @@ function playerScoreRowHTML(p, activeRound, options = {}) {
     </div>`;
 }
 
+function teamRoundSummaryHTML(players, teamTopar, activeRound) {
+  const roundTotals = [0, 1, 2, 3].map((ri) => {
+    let sum = null;
+    for (const p of players) {
+      const r = p.rounds[ri];
+      if (r !== null && r !== undefined) sum = (sum || 0) + r;
+    }
+    return sum;
+  });
+
+  const roundItems = roundTotals
+    .map((score, ri) => {
+      const fmt = formatScore(score);
+      const display = score === null || score === undefined ? '-' : fmt.display;
+      return `
+        <div class="team-summary-item ${ri === activeRound ? 'active' : ''}">
+          <span class="team-summary-label">R${ri + 1}</span>
+          <span class="team-summary-score ${fmt.cls}">${display}</span>
+        </div>`;
+    })
+    .join('');
+  const totalFmt = formatScore(teamTopar);
+
+  return `
+    <div class="team-round-summary" aria-label="Team round score summary">
+      ${roundItems}
+      <div class="team-summary-item total">
+        <span class="team-summary-label">Total</span>
+        <span class="team-summary-score ${totalFmt.cls}">${totalFmt.display}</span>
+      </div>
+    </div>`;
+}
+
 function renderTeamCards(teams, roundStatuses) {
   const grid = document.getElementById('cards-grid');
   const activeRound = roundStatuses ? roundStatuses.findIndex((s) => s === 'A') : -1;
@@ -263,6 +296,7 @@ function renderTeamCards(teams, roundStatuses) {
       const playerRows = players
         .map((p) => playerScoreRowHTML(p, activeRound, { showDonkey: true }))
         .join('');
+      const roundSummary = teamRoundSummaryHTML(players, teamTopar, activeRound);
 
       return `
         <div class="team-card" id="card-${name.replace(/\s+/g, '-')}">
@@ -277,6 +311,7 @@ function renderTeamCards(teams, roundStatuses) {
               <span class="team-card-toggle" aria-hidden="true">▾</span>
             </div>
           </button>
+          ${roundSummary}
           <div class="player-score-list" id="players-${name.replace(/\s+/g, '-')}" hidden>${playerRows}</div>
         </div>`;
     })
