@@ -286,6 +286,7 @@ function teamRoundSummaryHTML(players, teamTopar, activeRound) {
 function renderTeamCards(teams, roundStatuses) {
   const grid = document.getElementById('cards-grid');
   const activeRound = roundStatuses ? roundStatuses.findIndex((s) => s === 'A') : -1;
+  const collapseByDefault = window.matchMedia('(max-width: 600px)').matches;
 
   grid.innerHTML = teams
     .map((team) => {
@@ -297,13 +298,17 @@ function renderTeamCards(teams, roundStatuses) {
         .map((p) => playerScoreRowHTML(p, activeRound, { showDonkey: true }))
         .join('');
       const roundSummary = teamRoundSummaryHTML(players, teamTopar, activeRound);
+      const isExpanded = !collapseByDefault;
+      const cardClass = isExpanded ? 'team-card is-expanded' : 'team-card';
+      const toggleLabel = isExpanded ? 'Hide players' : 'Show players';
+      const hiddenAttr = isExpanded ? '' : ' hidden';
 
       return `
-        <div class="team-card" id="card-${name.replace(/\s+/g, '-')}">
-          <button class="team-card-header ${headerClass}" type="button" aria-expanded="false" aria-controls="players-${name.replace(/\s+/g, '-')}" onclick="toggleTeamCard('${name.replace(/\s+/g, '-')}')">
+        <div class="${cardClass}" id="card-${name.replace(/\s+/g, '-')}">
+          <button class="team-card-header ${headerClass}" type="button" aria-expanded="${isExpanded}" aria-controls="players-${name.replace(/\s+/g, '-')}" onclick="toggleTeamCard('${name.replace(/\s+/g, '-')}')">
             <div class="team-card-title">
               <div class="team-card-name">${name}</div>
-              <span class="team-card-toggle-label">Show players</span>
+              <span class="team-card-toggle-label">${toggleLabel}</span>
             </div>
             <div class="team-card-meta">
               <span class="team-card-rank">RANK ${rank}</span>
@@ -312,7 +317,7 @@ function renderTeamCards(teams, roundStatuses) {
             </div>
           </button>
           ${roundSummary}
-          <div class="player-score-list" id="players-${name.replace(/\s+/g, '-')}" hidden>${playerRows}</div>
+          <div class="player-score-list" id="players-${name.replace(/\s+/g, '-')}"${hiddenAttr}>${playerRows}</div>
         </div>`;
     })
     .join('');
