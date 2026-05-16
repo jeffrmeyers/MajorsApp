@@ -266,17 +266,37 @@ function renderTeamCards(teams, roundStatuses) {
 
       return `
         <div class="team-card" id="card-${name.replace(/\s+/g, '-')}">
-          <div class="team-card-header ${headerClass}">
-            <div class="team-card-name">${name}</div>
+          <button class="team-card-header ${headerClass}" type="button" aria-expanded="false" aria-controls="players-${name.replace(/\s+/g, '-')}" onclick="toggleTeamCard('${name.replace(/\s+/g, '-')}')">
+            <div class="team-card-title">
+              <div class="team-card-name">${name}</div>
+              <span class="team-card-toggle-label">Show players</span>
+            </div>
             <div class="team-card-meta">
               <span class="team-card-rank">RANK ${rank}</span>
               <span class="team-card-total ${totalFmt.cls}">${teamToparDisplay}</span>
+              <span class="team-card-toggle" aria-hidden="true">▾</span>
             </div>
-          </div>
-          <div class="player-score-list">${playerRows}</div>
+          </button>
+          <div class="player-score-list" id="players-${name.replace(/\s+/g, '-')}" hidden>${playerRows}</div>
         </div>`;
     })
     .join('');
+}
+
+function toggleTeamCard(cardKey, forceOpen = false) {
+  const card = document.getElementById(`card-${cardKey}`);
+  if (!card) return;
+
+  const header = card.querySelector('.team-card-header');
+  const panel = card.querySelector('.player-score-list');
+  const label = card.querySelector('.team-card-toggle-label');
+  const isOpen = !panel.hasAttribute('hidden');
+  const shouldOpen = forceOpen || !isOpen;
+
+  panel.toggleAttribute('hidden', !shouldOpen);
+  card.classList.toggle('is-expanded', shouldOpen);
+  header.setAttribute('aria-expanded', String(shouldOpen));
+  if (label) label.textContent = shouldOpen ? 'Hide players' : 'Show players';
 }
 
 function renderBenchedPlayers(teams, roundStatuses) {
@@ -561,6 +581,7 @@ function scrollToTeam(name) {
   const id = `card-${name.replace(/\s+/g, '-')}`;
   const el = document.getElementById(id);
   if (el) {
+    toggleTeamCard(name.replace(/\s+/g, '-'), true);
     el.scrollIntoView({ behavior: 'smooth', block: 'start' });
     el.style.boxShadow = '0 0 0 3px #c9a84c, 0 8px 32px rgba(0,0,0,0.15)';
     setTimeout(() => (el.style.boxShadow = ''), 1800);

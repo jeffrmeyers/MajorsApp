@@ -446,6 +446,21 @@ main {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  width: 100%;
+}
+
+.team-card-header:hover,
+.team-card-header:focus-visible {
+  filter: brightness(1.06);
+}
+
+.team-card-header:focus-visible {
+  outline: 3px solid var(--gold-light);
+  outline-offset: -3px;
 }
 
 .team-card-header.rank-1 {
@@ -465,6 +480,21 @@ main {
   font-size: 17px;
   font-weight: 800;
   letter-spacing: -0.3px;
+}
+
+.team-card-title {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.team-card-toggle-label {
+  color: rgba(255,255,255,0.72);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
 }
 
 .bench-card-name {
@@ -487,6 +517,7 @@ main {
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-shrink: 0;
 }
 
 .team-card-rank {
@@ -512,6 +543,24 @@ main {
 
 .team-card-total.score-even {
   color: rgba(255,255,255,0.85);
+}
+
+.team-card-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.14);
+  color: var(--white);
+  font-size: 14px;
+  transition: transform 0.2s, background 0.2s;
+}
+
+.team-card.is-expanded .team-card-toggle {
+  transform: rotate(180deg);
+  background: rgba(255,255,255,0.22);
 }
 
 /* Player rows */
