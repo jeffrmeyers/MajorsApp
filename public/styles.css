@@ -622,6 +622,10 @@ main {
   gap: 8px;
 }
 
+.player-score-list[hidden] {
+  display: none !important;
+}
+
 .player-score-list.bench {
   padding: 8px;
 }
