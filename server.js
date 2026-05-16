@@ -6,6 +6,8 @@ const app = express();
 const PORT = 3000;
 
 const MASTERS_API = 'https://www.masters.com/en_US/scores/feeds/2026/scores.json';
+const PGA_SCOREBOARD_API = 'https://site.api.espn.com/apis/site/v2/sports/golf/pga/scoreboard';
+const PGA_EVENT_ID = '401811947';
 
 const TEAMS = {
   'Team Jeff': [
@@ -69,104 +71,247 @@ function parseRoundScore(fantasy) {
   return Number(fantasy);
 }
 
+function formatTeamTotal(score) {
+  if (score === 0) return 'E';
+  return score > 0 ? `+${score}` : `${score}`;
+}
+
+function buildRoundStatusesFromState(state, period) {
+  const statuses = ['N', 'N', 'N', 'N'];
+  if (state === 'post') return ['F', 'F', 'F', 'F'];
+  if (state === 'in') {
+    const idx = Math.max(0, Math.min((period || 1) - 1, 3));
+    for (let i = 0; i < idx; i += 1) statuses[i] = 'F';
+    statuses[idx] = 'A';
+  }
+  return statuses;
+}
+
+function parseEspnRoundValue(display) {
+  if (display === null || display === undefined) return null;
+  const text = String(display).trim().toUpperCase();
+  if (text === '' || text === '-') return null;
+  if (text === 'E') return 0;
+  const n = parseInt(text, 10);
+  return Number.isNaN(n) ? null : n;
+}
+
+function emptyTournamentResponse() {
+  return {
+    teams: Object.keys(TEAMS).map((name, idx) => ({
+      name,
+      players: [],
+      teamTopar: 0,
+      teamToparDisplay: 'E',
+      rank: idx + 1,
+    })),
+    lastUpdated: '',
+    currentRound: 1,
+    roundStatuses: ['N', 'N', 'N', 'N'],
+    allPlayers: [],
+  };
+}
+
 app.use(express.static(path.join(__dirname, 'public')));
+
+async function fetchJson(url, referer) {
+  const response = await fetch(url, {
+    headers: {
+      'User-Agent':
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      ...(referer ? { Referer: referer } : {}),
+    },
+  });
+  if (!response.ok) throw new Error(`${url} returned ${response.status}`);
+  return response.json();
+}
+
+function buildTeamData(playerMap, allPlayers, roundStatuses) {
+  const teams = Object.entries(TEAMS).map(([teamName, roster]) => {
+    const playerResults = roster.map((playerName) => {
+      const apiName = NAME_ALIASES[playerName] || playerName;
+      const p = playerMap[apiName];
+
+      if (!p) {
+        return {
+          name: playerName,
+          pos: 'N/A',
+          topar: null,
+          toparDisplay: 'N/A',
+          total: null,
+          status: '',
+          thru: '-',
+          today: '-',
+          rounds: [null, null, null, null],
+          notFound: true,
+          cut: false,
+          wd: false,
+          active: false,
+        };
+      }
+
+      return { name: playerName, ...p };
+    });
+
+    const teamTopar = playerResults.reduce((sum, p) => {
+      if (p.notFound || p.wd) return sum;
+      return sum + (p.topar || 0);
+    }, 0);
+
+    return {
+      name: teamName,
+      players: playerResults,
+      teamTopar,
+      teamToparDisplay: formatTeamTotal(teamTopar),
+    };
+  });
+
+  teams.sort((a, b) => a.teamTopar - b.teamTopar);
+  teams.forEach((team, idx) => {
+    team.rank = idx + 1;
+  });
+
+  allPlayers.sort((a, b) => a.name.localeCompare(b.name));
+  return { teams, allPlayers, roundStatuses };
+}
+
+async function buildMastersScoresResponse() {
+  const json = await fetchJson(MASTERS_API, 'https://www.masters.com/');
+  const { player: players, currentRound, statusRound, wallClockTime } = json.data;
+  const roundStatuses = statusRound ? statusRound.split('') : [];
+  const playerMap = {};
+  const allPlayers = [];
+
+  for (const p of players) {
+    const rounds = [
+      parseRoundScore(p.round1?.fantasy),
+      parseRoundScore(p.round2?.fantasy),
+      parseRoundScore(p.round3?.fantasy),
+      parseRoundScore(p.round4?.fantasy),
+    ];
+    roundStatuses.forEach((status, idx) => {
+      if (status === 'N') rounds[idx] = null;
+    });
+
+    const parsedPlayer = {
+      pos: p.pos || '-',
+      topar: parseTopar(p.topar),
+      toparDisplay: p.topar || 'E',
+      total: p.total ? parseInt(p.total, 10) : null,
+      status: p.status || '',
+      thru: p.thru || '-',
+      today: p.today || 'E',
+      rounds,
+      notFound: false,
+      cut: p.status === 'CUT',
+      wd: p.status === 'WD',
+      active: p.active || false,
+    };
+    playerMap[p.full_name] = parsedPlayer;
+    allPlayers.push({
+      name: p.full_name,
+      rounds,
+      status: p.status || '',
+      topar: parseTopar(p.topar),
+      pos: p.pos || '-',
+    });
+  }
+
+  const data = buildTeamData(playerMap, allPlayers, roundStatuses);
+  return {
+    tournament: 'masters',
+    tournamentLabel: 'The Masters',
+    ...data,
+    lastUpdated: wallClockTime || new Date().toISOString(),
+    currentRound: Math.min(parseInt(currentRound, 10) || 1, 4),
+  };
+}
+
+async function buildPgaScoresResponse() {
+  const scoreboard = await fetchJson(PGA_SCOREBOARD_API, 'https://www.espn.com/golf/');
+  const event = (scoreboard.events || []).find((e) => e.id === PGA_EVENT_ID);
+
+  if (!event) {
+    return {
+      ...emptyTournamentResponse(),
+      tournament: 'pga',
+      tournamentLabel: 'PGA Championship',
+      message: 'PGA Championship has not started yet.',
+    };
+  }
+
+  const competition = (event.competitions || [{}])[0];
+  const competitors = competition.competitors || [];
+  const state = event.status?.type?.state || 'pre';
+  const currentRound = Math.max(1, Math.min(4, parseInt(event.status?.period, 10) || 1));
+  const roundStatuses = buildRoundStatusesFromState(state, currentRound);
+  const playerMap = {};
+  const allPlayers = [];
+
+  competitors.forEach((competitor, idx) => {
+    const athlete = competitor.athlete || {};
+    const fullName = athlete.fullName || athlete.displayName;
+    if (!fullName) return;
+
+    const rounds = [null, null, null, null];
+    const lines = competitor.linescores || [];
+    lines.forEach((line) => {
+      if (!line.period || line.period < 1 || line.period > 4) return;
+      rounds[line.period - 1] = parseEspnRoundValue(line.displayValue);
+    });
+    roundStatuses.forEach((status, roundIdx) => {
+      if (status === 'N') rounds[roundIdx] = null;
+    });
+
+    const todayVal = rounds[currentRound - 1];
+    const roundDetail = lines.find((line) => line.period === currentRound);
+    const holesPlayed = (roundDetail?.linescores || []).length;
+    const scoreDisplay = competitor.score || 'E';
+    const playerStatus = String(scoreDisplay).toUpperCase() === 'CUT' ? 'CUT' : '';
+
+    const parsedPlayer = {
+      pos: String(idx + 1),
+      topar: parseTopar(scoreDisplay),
+      toparDisplay: scoreDisplay,
+      total: null,
+      status: playerStatus,
+      thru: holesPlayed > 0 ? String(holesPlayed) : '-',
+      today: todayVal === 0 ? 'E' : todayVal !== null && todayVal !== undefined ? String(todayVal) : '-',
+      rounds,
+      notFound: false,
+      cut: playerStatus === 'CUT',
+      wd: false,
+      active: state === 'in',
+    };
+    playerMap[fullName] = parsedPlayer;
+    allPlayers.push({
+      name: fullName,
+      rounds,
+      status: playerStatus,
+      topar: parsedPlayer.topar,
+      pos: parsedPlayer.pos,
+    });
+  });
+
+  const data = buildTeamData(playerMap, allPlayers, roundStatuses);
+  return {
+    tournament: 'pga',
+    tournamentLabel: 'PGA Championship',
+    ...data,
+    lastUpdated: scoreboard.day?.date || new Date().toISOString(),
+    currentRound,
+  };
+}
 
 app.get('/api/scores', async (req, res) => {
   try {
-    const response = await fetch(MASTERS_API, {
-      headers: {
-        'User-Agent':
-          'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        Referer: 'https://www.masters.com/',
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`Masters API returned ${response.status}`);
-    }
-
-    const json = await response.json();
-    const { player: players, currentRound, statusRound, wallClockTime } = json.data;
-
-    // Build player lookup by full name
-    const playerMap = {};
-    for (const p of players) {
-      playerMap[p.full_name] = p;
-    }
-
-    // Determine active rounds from statusRound (F=Finished, A=Active, N=Not started)
-    const roundStatuses = statusRound ? statusRound.split('') : [];
-    const activeRoundIndex = roundStatuses.findIndex((s) => s === 'A');
-    const lastFinishedRound = roundStatuses.lastIndexOf('F');
-
-    const teamData = {};
-
-    for (const [teamName, roster] of Object.entries(TEAMS)) {
-      const playerResults = roster.map((playerName) => {
-        const apiName = NAME_ALIASES[playerName] || playerName;
-        const p = playerMap[apiName];
-
-        if (!p) {
-          return {
-            name: playerName,
-            pos: 'N/A',
-            topar: null,
-            total: null,
-            status: 'WD',
-            thru: '-',
-            rounds: [null, null, null, null],
-            notFound: true,
-          };
-        }
-
-        const rounds = [
-          parseRoundScore(p.round1?.fantasy),
-          parseRoundScore(p.round2?.fantasy),
-          parseRoundScore(p.round3?.fantasy),
-          parseRoundScore(p.round4?.fantasy),
-        ];
-
-        return {
-          name: playerName,
-          pos: p.pos || '-',
-          topar: parseTopar(p.topar),
-          toparDisplay: p.topar || 'E',
-          total: p.total ? parseInt(p.total) : null,
-          status: p.status || '',
-          thru: p.thru || '-',
-          today: p.today || 'E',
-          rounds,
-          active: p.active || false,
-          cut: p.status === 'CUT',
-          wd: p.status === 'WD',
-        };
-      });
-
-      const teamTopar = playerResults.reduce((sum, p) => {
-        if (p.notFound || p.wd) return sum;
-        return sum + (p.topar || 0);
-      }, 0);
-
-      teamData[teamName] = {
-        players: playerResults,
-        teamTopar,
-        teamToparDisplay: teamTopar === 0 ? 'E' : teamTopar > 0 ? `+${teamTopar}` : `${teamTopar}`,
-      };
-    }
-
-    // Sort teams by topar
-    const sortedTeams = Object.entries(teamData)
-      .sort((a, b) => a[1].teamTopar - b[1].teamTopar)
-      .map(([name, data], idx) => ({ rank: idx + 1, name, ...data }));
-
-    res.json({
-      teams: sortedTeams,
-      lastUpdated: wallClockTime || new Date().toISOString(),
-      currentRound: parseInt(currentRound) > 4 ? 4 : parseInt(currentRound),
-      roundStatuses,
-    });
+    const tournament = String(req.query.tournament || 'masters').toLowerCase();
+    const data = tournament === 'pga'
+      ? await buildPgaScoresResponse()
+      : await buildMastersScoresResponse();
+    res.json(data);
   } catch (err) {
-    console.error('Error fetching Masters data:', err.message);
+    console.error('Error fetching scores:', err.message);
     res.status(500).json({ error: err.message });
   }
 });

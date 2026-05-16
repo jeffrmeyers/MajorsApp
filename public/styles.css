@@ -552,40 +552,6 @@ main {
   border-left: 4px solid var(--gold);
 }
 
-.history-list {
-  background: var(--white);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  padding: 8px 16px;
-}
-
-.history-item {
-  display: grid;
-  grid-template-columns: 140px 1fr 60px;
-  gap: 10px;
-  align-items: center;
-  padding: 10px 0;
-  border-bottom: 1px solid var(--gray-100);
-  font-size: 14px;
-}
-
-.history-item:last-child {
-  border-bottom: none;
-}
-
-.history-time {
-  color: var(--gray-600);
-}
-
-.history-leader {
-  font-weight: 700;
-}
-
-.history-score {
-  text-align: right;
-  font-weight: 800;
-}
-
 .donkey-description {
   font-size: 14px;
   color: var(--gray-600);

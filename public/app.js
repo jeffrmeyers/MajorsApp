@@ -2,7 +2,7 @@
 let autoRefreshTimer = null;
 let rawData = null;
 let donkeyPlayers = [null, null]; // [donkey1, donkey2]
-let activeTournament = localStorage.getItem('activeTournament') || 'masters';
+let activeTournament = 'pga';
 
 const TOURNAMENTS = {
   masters: {
@@ -18,10 +18,6 @@ const TOURNAMENTS = {
 function donkeyKeysFor(tournament) {
   const prefix = `${tournament}:`;
   return [`${prefix}donkeyPlayer1Name`, `${prefix}donkeyPlayer2Name`];
-}
-
-function historyKeyFor(tournament) {
-  return `${tournament}:history`;
 }
 
 // ─── Score formatting ─────────────────────────────────────────────────────────
@@ -327,42 +323,6 @@ function renderDonkeyInfo() {
   infoEl.classList.remove('hidden');
 }
 
-function renderHistory(teams) {
-  const historyEl = document.getElementById('history-list');
-  const history = JSON.parse(localStorage.getItem(historyKeyFor(activeTournament)) || '[]');
-  if (history.length === 0) {
-    historyEl.innerHTML = '<div class="history-item">No snapshots yet. History is saved each time scores refresh.</div>';
-    return;
-  }
-
-  historyEl.innerHTML = history
-    .slice(0, 10)
-    .reverse()
-    .map((entry) => {
-      const leader = entry.leader || 'N/A';
-      const leaderScore = entry.leaderScore || 'E';
-      return `<div class="history-item">
-        <span class="history-time">${entry.time}</span>
-        <span class="history-leader">${leader}</span>
-        <span class="history-score">${leaderScore}</span>
-      </div>`;
-    })
-    .join('');
-}
-
-function saveHistorySnapshot(teams) {
-  if (!teams || teams.length === 0) return;
-  const history = JSON.parse(localStorage.getItem(historyKeyFor(activeTournament)) || '[]');
-  const leader = teams[0];
-  const now = new Date();
-  history.push({
-    time: now.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
-    leader: leader?.name || 'N/A',
-    leaderScore: leader?.teamToparDisplay || 'E',
-  });
-  localStorage.setItem(historyKeyFor(activeTournament), JSON.stringify(history.slice(-50)));
-}
-
 // ─── Donkey autocomplete ──────────────────────────────────────────────────────
 function initDonkeyInput() {
   [0, 1].forEach((idx) => {
@@ -483,7 +443,6 @@ function rerenderWithDonkey() {
   renderLeaderboard(effectiveTeams, rawData.roundStatuses);
   renderTeamCards(effectiveTeams, rawData.roundStatuses);
   renderDonkeyInfo();
-  renderHistory(effectiveTeams);
 }
 
 // ─── Data loading ─────────────────────────────────────────────────────────────
@@ -513,7 +472,6 @@ async function loadScores() {
 
     restoreDonkeyFromStorage();
     rerenderWithDonkey();
-    saveHistorySnapshot(applyDonkeySubstitution(data.teams || [], donkeyPlayers));
 
     loading.classList.add('hidden');
     table.classList.remove('hidden');
@@ -553,7 +511,6 @@ function scrollToTeam(name) {
 function setActiveTournament(tournament) {
   if (!TOURNAMENTS[tournament]) return;
   activeTournament = tournament;
-  localStorage.setItem('activeTournament', tournament);
 
   document.querySelectorAll('.tournament-tab').forEach((btn) => {
     const isActive = btn.dataset.tournament === tournament;
