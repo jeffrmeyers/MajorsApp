@@ -253,6 +253,78 @@ function renderTeamCards(teams, roundStatuses) {
     .join('');
 }
 
+function renderBenchedPlayers(teams, roundStatuses) {
+  const section = document.getElementById('bench-section');
+  const grid = document.getElementById('bench-grid');
+  const teamsWithBench = teams.filter((team) => team.benchedPlayers?.length > 0);
+  const activeRound = roundStatuses ? roundStatuses.findIndex((s) => s === 'A') : -1;
+
+  if (teamsWithBench.length === 0) {
+    section.classList.add('hidden');
+    grid.innerHTML = '';
+    return;
+  }
+
+  grid.innerHTML = teamsWithBench
+    .map((team) => {
+      const playerRows = team.benchedPlayers
+        .map((p) => {
+          const toparFmt = p.notFound ? { display: 'N/A', cls: 'score-dash' } : formatScore(p.topar);
+          const statusBadge = p.cut
+            ? `<span class="status-badge status-cut">CUT</span>`
+            : p.wd
+            ? `<span class="status-badge status-wd">WD</span>`
+            : '';
+          const rounds = p.rounds
+            .map((r, ri) => roundPillHTML(r, ri === activeRound, null))
+            .join('');
+          const thruDisplay = p.thru === 'F' ? 'F' : p.thru === '-' ? '-' : `${p.thru}`;
+          const todayFmt = p.notFound
+            ? { display: '-', cls: 'score-dash' }
+            : formatScore(p.today === 'E' ? 0 : parseInt(p.today) || 0);
+
+          return `
+            <tr>
+              <td>
+                <div class="player-name">${p.name}${statusBadge}</div>
+                <div class="player-pos">${p.pos !== 'N/A' ? p.pos : ''}</div>
+              </td>
+              <td class="player-thru">${thruDisplay}</td>
+              <td class="player-today ${todayFmt.cls}">${p.notFound ? '-' : p.today}</td>
+              <td class="player-total ${toparFmt.cls}">${toparFmt.display}</td>
+              <td style="text-align:right;padding-right:12px">
+                <div class="player-rounds">${rounds}</div>
+              </td>
+            </tr>`;
+        })
+        .join('');
+
+      return `
+        <div class="bench-card">
+          <div class="bench-card-header">
+            <div class="bench-card-name">${team.name}</div>
+            <span class="bench-card-label">BENCH</span>
+          </div>
+          <div class="table-scroll">
+          <table class="player-table">
+            <thead>
+              <tr>
+                <th>Player</th>
+                <th class="right" style="text-align:center">Thru</th>
+                <th class="right">Today</th>
+                <th class="right">Total</th>
+                <th class="right" style="padding-right:12px">Rounds</th>
+              </tr>
+            </thead>
+            <tbody>${playerRows}</tbody>
+          </table>
+          </div>
+        </div>`;
+    })
+    .join('');
+  section.classList.remove('hidden');
+}
+
 function renderDonkeyInfo() {
   const infoEl = document.getElementById('donkey-info');
   const activeDonkeys = donkeyPlayers.filter(Boolean);
@@ -442,6 +514,7 @@ function rerenderWithDonkey() {
   const effectiveTeams = applyDonkeySubstitution(rawData.teams, donkeyPlayers);
   renderLeaderboard(effectiveTeams, rawData.roundStatuses);
   renderTeamCards(effectiveTeams, rawData.roundStatuses);
+  renderBenchedPlayers(effectiveTeams, rawData.roundStatuses);
   renderDonkeyInfo();
 }
 

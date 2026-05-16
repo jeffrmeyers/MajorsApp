@@ -79,10 +79,20 @@ const PGA_TEAMS = {
   ],
 };
 
+const PGA_BENCH_PLAYERS = {
+  'Team Jeff': ['Maverick McNealy', 'Sahith Theegala'],
+  'Team Josh': ['Min Woo Lee', 'Nicolai Hojgaard'],
+  'Team John': ['Brian Harman', 'Kurt Kitayama'],
+  'Team Ben': ['Jake Knapp', 'Patrick Reed'],
+  'Team Mark': ['Cam Smith', 'Gary Woodland'],
+  'Team Paul': ['Patrick Cantlay', 'Si Woo Kim'],
+};
+
 // Name aliases to match Masters.com data
 const NAME_ALIASES = {
   'Cam Smith': 'Cameron Smith',
   'Ludvig Aberg': 'Ludvig Åberg',
+  'Nicolai Hojgaard': 'Nicolai Højgaard',
 };
 
 function parseTopar(topar) {
@@ -126,6 +136,7 @@ function emptyTournamentResponse(teamsConfig) {
     teams: Object.keys(teamsConfig).map((name, idx) => ({
       name,
       players: [],
+      benchedPlayers: [],
       teamTopar: 0,
       teamToparDisplay: 'E',
       rank: idx + 1,
@@ -135,6 +146,32 @@ function emptyTournamentResponse(teamsConfig) {
     roundStatuses: ['N', 'N', 'N', 'N'],
     allPlayers: [],
   };
+}
+
+function missingPlayer(playerName) {
+  return {
+    name: playerName,
+    pos: 'N/A',
+    topar: null,
+    toparDisplay: 'N/A',
+    total: null,
+    status: '',
+    thru: '-',
+    today: '-',
+    rounds: [null, null, null, null],
+    notFound: true,
+    cut: false,
+    wd: false,
+    active: false,
+  };
+}
+
+function buildBenchedPlayers(teamName, playerMap) {
+  return (PGA_BENCH_PLAYERS[teamName] || []).map((playerName) => {
+    const apiName = NAME_ALIASES[playerName] || playerName;
+    const p = playerMap[apiName];
+    return p ? { name: playerName, ...p } : missingPlayer(playerName);
+  });
 }
 
 app.use(express.static(path.join(__dirname, 'public')));
@@ -158,21 +195,7 @@ function buildTeamData(teamsConfig, playerMap, allPlayers, roundStatuses) {
       const p = playerMap[apiName];
 
       if (!p) {
-        return {
-          name: playerName,
-          pos: 'N/A',
-          topar: null,
-          toparDisplay: 'N/A',
-          total: null,
-          status: '',
-          thru: '-',
-          today: '-',
-          rounds: [null, null, null, null],
-          notFound: true,
-          cut: false,
-          wd: false,
-          active: false,
-        };
+        return missingPlayer(playerName);
       }
 
       return { name: playerName, ...p };
@@ -186,6 +209,7 @@ function buildTeamData(teamsConfig, playerMap, allPlayers, roundStatuses) {
     return {
       name: teamName,
       players: playerResults,
+      benchedPlayers: teamsConfig === PGA_TEAMS ? buildBenchedPlayers(teamName, playerMap) : [],
       teamTopar,
       teamToparDisplay: formatTeamTotal(teamTopar),
     };
@@ -257,12 +281,16 @@ async function buildPgaScoresResponse() {
   const event = (scoreboard.events || []).find((e) => e.id === PGA_EVENT_ID);
 
   if (!event) {
-    return {
+    const out = {
       ...emptyTournamentResponse(PGA_TEAMS),
       tournament: 'pga',
       tournamentLabel: 'PGA Championship',
       message: 'PGA Championship has not started yet.',
     };
+    out.teams.forEach((team) => {
+      team.benchedPlayers = (PGA_BENCH_PLAYERS[team.name] || []).map(missingPlayer);
+    });
+    return out;
   }
 
   const competition = (event.competitions || [{}])[0];

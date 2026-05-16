@@ -89,10 +89,20 @@ PGA_TEAMS = {
     ],
 }
 
+PGA_BENCH_PLAYERS = {
+    'Team Jeff': ['Maverick McNealy', 'Sahith Theegala'],
+    'Team Josh': ['Min Woo Lee', 'Nicolai Hojgaard'],
+    'Team John': ['Brian Harman', 'Kurt Kitayama'],
+    'Team Ben': ['Jake Knapp', 'Patrick Reed'],
+    'Team Mark': ['Cam Smith', 'Gary Woodland'],
+    'Team Paul': ['Patrick Cantlay', 'Si Woo Kim'],
+}
+
 # Name aliases: display name -> masters.com full_name
 NAME_ALIASES = {
     'Cam Smith': 'Cameron Smith',
     'Ludvig Aberg': 'Ludvig \u00c5berg',
+    'Nicolai Hojgaard': 'Nicolai Højgaard',
 }
 
 MIME_TYPES = {
@@ -165,6 +175,7 @@ def build_empty_response(teams):
         team_data.append({
             'name': team_name,
             'players': [],
+            'benchedPlayers': [],
             'teamTopar': 0,
             'teamToparDisplay': 'E',
             'rank': i + 1,
@@ -177,6 +188,33 @@ def build_empty_response(teams):
         'roundStatuses': ['N', 'N', 'N', 'N'],
         'allPlayers': [],
     }
+
+
+def missing_player(player_name):
+    return {
+        'name': player_name,
+        'pos': 'N/A',
+        'topar': None,
+        'toparDisplay': 'N/A',
+        'total': None,
+        'status': '',
+        'thru': '-',
+        'today': '-',
+        'rounds': [None, None, None, None],
+        'notFound': True,
+        'cut': False,
+        'wd': False,
+        'active': False,
+    }
+
+
+def build_benched_players(team_name, player_map):
+    bench = []
+    for player_name in PGA_BENCH_PLAYERS.get(team_name, []):
+        api_name = NAME_ALIASES.get(player_name, player_name)
+        p = player_map.get(api_name)
+        bench.append({'name': player_name, **p} if p else missing_player(player_name))
+    return bench
 
 
 def build_masters_scores_response():
@@ -200,21 +238,7 @@ def build_masters_scores_response():
             p = player_map.get(api_name)
 
             if not p:
-                player_results.append({
-                    'name': player_name,
-                    'pos': 'N/A',
-                    'topar': None,
-                    'toparDisplay': 'N/A',
-                    'total': None,
-                    'status': '',
-                    'thru': '-',
-                    'today': '-',
-                    'rounds': [None, None, None, None],
-                    'notFound': True,
-                    'cut': False,
-                    'wd': False,
-                    'active': False,
-                })
+                player_results.append(missing_player(player_name))
                 continue
 
             rounds = [
@@ -262,6 +286,7 @@ def build_masters_scores_response():
         team_data.append({
             'name': team_name,
             'players': player_results,
+            'benchedPlayers': [],
             'teamTopar': team_topar,
             'teamToparDisplay': display,
         })
@@ -315,6 +340,8 @@ def build_pga_scores_response():
 
     if not event:
         out = build_empty_response(PGA_TEAMS)
+        for team in out['teams']:
+            team['benchedPlayers'] = [missing_player(name) for name in PGA_BENCH_PLAYERS.get(team['name'], [])]
         out['tournament'] = 'pga'
         out['tournamentLabel'] = 'PGA Championship'
         out['message'] = 'PGA Championship has not started yet.'
@@ -380,21 +407,7 @@ def build_pga_scores_response():
             api_name = NAME_ALIASES.get(player_name, player_name)
             p = player_map.get(api_name)
             if not p:
-                player_results.append({
-                    'name': player_name,
-                    'pos': 'N/A',
-                    'topar': None,
-                    'toparDisplay': 'N/A',
-                    'total': None,
-                    'status': '',
-                    'thru': '-',
-                    'today': '-',
-                    'rounds': [None, None, None, None],
-                    'notFound': True,
-                    'cut': False,
-                    'wd': False,
-                    'active': False,
-                })
+                player_results.append(missing_player(player_name))
             else:
                 player_results.append({'name': player_name, **p})
 
@@ -406,6 +419,7 @@ def build_pga_scores_response():
         team_data.append({
             'name': team_name,
             'players': player_results,
+            'benchedPlayers': build_benched_players(team_name, player_map),
             'teamTopar': team_topar,
             'teamToparDisplay': format_team_total(team_topar),
         })

@@ -348,6 +348,18 @@ main {
   gap: 20px;
 }
 
+#bench-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 20px;
+}
+
+.bench-description {
+  color: var(--gray-600);
+  font-size: 14px;
+  margin: -8px 0 16px;
+}
+
 .team-card {
   background: var(--white);
   border-radius: var(--radius);
@@ -359,6 +371,13 @@ main {
 .team-card:hover {
   box-shadow: 0 8px 32px rgba(0,0,0,0.13);
   transform: translateY(-2px);
+}
+
+.bench-card {
+  background: var(--white);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
 }
 
 .team-card-header {
@@ -374,10 +393,35 @@ main {
   background: linear-gradient(135deg, #92400e, #b45309, #d97706);
 }
 
+.bench-card-header {
+  background: linear-gradient(135deg, var(--gray-600), var(--gray-800));
+  color: var(--white);
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
 .team-card-name {
   font-size: 17px;
   font-weight: 800;
   letter-spacing: -0.3px;
+}
+
+.bench-card-name {
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: -0.3px;
+}
+
+.bench-card-label {
+  background: rgba(255,255,255,0.15);
+  border: 1px solid rgba(255,255,255,0.25);
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  padding: 4px 9px;
 }
 
 .team-card-meta {
