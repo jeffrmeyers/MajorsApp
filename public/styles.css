@@ -403,13 +403,13 @@ main {
 /* TEAM CARDS GRID */
 #cards-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 24px;
 }
 
 #bench-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
   gap: 20px;
 }
 
@@ -515,47 +515,40 @@ main {
 }
 
 /* Player rows */
-.player-table {
-  width: 100%;
-  min-width: 420px;
-  border-collapse: collapse;
+.player-score-list {
+  display: flex;
+  flex-direction: column;
+  padding: 8px;
+  gap: 8px;
 }
 
-.player-table thead {
-  background: var(--gray-100);
+.player-score-list.bench {
+  padding: 8px;
 }
 
-.player-table thead th {
-  padding: 8px 12px;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.8px;
-  text-transform: uppercase;
-  color: var(--gray-600);
-  text-align: left;
-  white-space: nowrap;
+.player-score-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px 12px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid var(--gray-100);
+  border-radius: 10px;
+  background: var(--white);
 }
 
-.player-table thead th.right {
-  text-align: right;
+.player-score-row:nth-child(even) {
+  background: var(--gray-50);
 }
 
-.player-table tbody tr {
-  border-bottom: 1px solid var(--gray-100);
-}
-
-.player-table tbody tr:last-child {
-  border-bottom: none;
-}
-
-.player-table tbody td {
-  padding: 10px 12px;
-  font-size: 14px;
-  white-space: nowrap;
+.player-score-main {
+  min-width: 0;
 }
 
 .player-name {
   font-weight: 600;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
 }
 
 .player-pos {
@@ -564,39 +557,75 @@ main {
   margin-top: 1px;
 }
 
-.player-thru {
-  font-size: 13px;
-  color: var(--gray-600);
+.player-score-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(46px, auto));
+  gap: 6px;
+}
+
+.player-score-metric {
+  min-width: 46px;
+  padding: 5px 7px;
+  border-radius: 8px;
+  background: var(--gray-100);
   text-align: center;
 }
 
-.player-today {
-  text-align: right;
-  font-size: 13px;
-  font-weight: 600;
+.player-score-metric.total {
+  background: #fef9e7;
 }
 
-.player-total {
-  text-align: right;
+.metric-label {
+  display: block;
+  color: var(--gray-600);
+  font-size: 9px;
   font-weight: 800;
-  font-size: 15px;
-  min-width: 48px;
+  letter-spacing: 0.7px;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.metric-value {
+  display: block;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.2;
+  margin-top: 3px;
+}
+
+.player-rounds-wrap {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+}
+
+.rounds-label {
+  color: var(--gray-600);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  flex-shrink: 0;
 }
 
 .player-rounds {
   display: flex;
   gap: 4px;
   justify-content: flex-end;
+  flex-wrap: wrap;
 }
 
 .round-pill {
   font-size: 11px;
   font-weight: 600;
-  padding: 2px 6px;
+  padding: 3px 7px;
   border-radius: 6px;
   background: var(--gray-100);
   color: var(--gray-600);
-  min-width: 28px;
+  min-width: 30px;
   text-align: center;
 }
 
@@ -891,6 +920,7 @@ main {
 /* Substituted row highlights */
 .donkey-row-1 {
   background: #fffbeb !important;
+  border-color: #fde68a;
 }
 
 .donkey-row-1:hover {
@@ -899,6 +929,7 @@ main {
 
 .donkey-row-2 {
   background: #eff6ff !important;
+  border-color: #bfdbfe;
 }
 
 .donkey-row-2:hover {
@@ -939,13 +970,64 @@ footer a:hover {
     padding: 20px 16px 24px;
   }
 
-  #cards-grid {
+  main {
+    padding: 24px 10px 40px;
+    gap: 28px;
+  }
+
+  #cards-grid,
+  #bench-grid {
     grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .team-card-header,
+  .bench-card-header {
+    padding: 14px 14px;
+  }
+
+  .team-card-name,
+  .bench-card-name {
+    font-size: 15px;
+  }
+
+  .team-card-total {
+    font-size: 20px;
+  }
+
+  .player-score-list {
+    padding: 6px;
+    gap: 7px;
+  }
+
+  .player-score-row {
+    grid-template-columns: 1fr;
+    padding: 10px;
+    gap: 9px;
+  }
+
+  .player-score-metrics {
+    grid-template-columns: repeat(3, 1fr);
+    width: 100%;
+  }
+
+  .player-score-metric {
+    min-width: 0;
+    padding: 6px 5px;
+  }
+
+  .player-rounds-wrap {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .player-rounds {
+    justify-content: flex-start;
+    width: 100%;
   }
 
   .player-name {
-    max-width: 120px;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    font-size: 14px;
   }
 }

@@ -198,6 +198,58 @@ function renderLeaderboard(teams, roundStatuses) {
     .join('');
 }
 
+function playerScoreRowHTML(p, activeRound, options = {}) {
+  const toparFmt = p.notFound ? { display: 'N/A', cls: 'score-dash' } : formatScore(p.topar);
+  const statusBadge = p.cut
+    ? `<span class="status-badge status-cut">CUT</span>`
+    : p.wd
+    ? `<span class="status-badge status-wd">WD</span>`
+    : '';
+  const donkeyBadge = p.donkeySubstituted
+    ? `<span class="status-badge status-donkey donkey-${p.donkeyNum}">🫏${p.donkeyNum}</span>`
+    : '';
+  const rounds = p.rounds
+    .map((r, ri) =>
+      roundPillHTML(
+        r,
+        ri === activeRound,
+        options.showDonkey && p.donkeyRoundIdx ? p.donkeyRoundIdx[ri] : null
+      )
+    )
+    .join('');
+  const thruDisplay = p.thru === 'F' ? 'F' : p.thru === '-' ? '-' : `${p.thru}`;
+  const todayFmt = p.notFound
+    ? { display: '-', cls: 'score-dash' }
+    : formatScore(p.today === 'E' ? 0 : parseInt(p.today) || 0);
+  const rowClass = p.donkeySubstituted ? `donkey-row donkey-row-${p.donkeyNum}` : '';
+
+  return `
+    <div class="player-score-row ${rowClass}">
+      <div class="player-score-main">
+        <div class="player-name">${p.name}${statusBadge}${donkeyBadge}</div>
+        <div class="player-pos">${p.pos !== 'N/A' ? p.pos : ''}</div>
+      </div>
+      <div class="player-score-metrics">
+        <div class="player-score-metric">
+          <span class="metric-label">Thru</span>
+          <span class="metric-value">${thruDisplay}</span>
+        </div>
+        <div class="player-score-metric">
+          <span class="metric-label">Today</span>
+          <span class="metric-value ${todayFmt.cls}">${p.notFound ? '-' : p.today}</span>
+        </div>
+        <div class="player-score-metric total">
+          <span class="metric-label">Total</span>
+          <span class="metric-value ${toparFmt.cls}">${toparFmt.display}</span>
+        </div>
+      </div>
+      <div class="player-rounds-wrap">
+        <span class="rounds-label">Rounds</span>
+        <div class="player-rounds">${rounds}</div>
+      </div>
+    </div>`;
+}
+
 function renderTeamCards(teams, roundStatuses) {
   const grid = document.getElementById('cards-grid');
   const activeRound = roundStatuses ? roundStatuses.findIndex((s) => s === 'A') : -1;
@@ -209,48 +261,7 @@ function renderTeamCards(teams, roundStatuses) {
       const headerClass = rank === 1 ? 'rank-1' : '';
 
       const playerRows = players
-        .map((p) => {
-          const toparFmt = p.notFound ? { display: 'N/A', cls: 'score-dash' } : formatScore(p.topar);
-          const statusBadge = p.cut
-            ? `<span class="status-badge status-cut">CUT</span>`
-            : p.wd
-            ? `<span class="status-badge status-wd">WD</span>`
-            : '';
-          const donkeyBadge = p.donkeySubstituted
-            ? `<span class="status-badge status-donkey donkey-${p.donkeyNum}">🫏${p.donkeyNum}</span>`
-            : '';
-
-          const rounds = p.rounds
-            .map((r, ri) =>
-              roundPillHTML(
-                r,
-                ri === activeRound,
-                p.donkeyRoundIdx ? p.donkeyRoundIdx[ri] : null
-              )
-            )
-            .join('');
-
-          const thruDisplay = p.thru === 'F' ? 'F' : p.thru === '-' ? '-' : `${p.thru}`;
-          const todayFmt = p.notFound
-            ? { display: '-', cls: 'score-dash' }
-            : formatScore(p.today === 'E' ? 0 : parseInt(p.today) || 0);
-
-          const rowClass = p.donkeySubstituted ? `donkey-row donkey-row-${p.donkeyNum}` : '';
-
-          return `
-            <tr class="${rowClass}">
-              <td>
-                <div class="player-name">${p.name}${statusBadge}${donkeyBadge}</div>
-                <div class="player-pos">${p.pos !== 'N/A' ? p.pos : ''}</div>
-              </td>
-              <td class="player-thru">${thruDisplay}</td>
-              <td class="player-today ${todayFmt.cls}">${p.notFound ? '-' : p.today}</td>
-              <td class="player-total ${toparFmt.cls}">${toparFmt.display}</td>
-              <td style="text-align:right;padding-right:12px">
-                <div class="player-rounds">${rounds}</div>
-              </td>
-            </tr>`;
-        })
+        .map((p) => playerScoreRowHTML(p, activeRound, { showDonkey: true }))
         .join('');
 
       return `
@@ -262,20 +273,7 @@ function renderTeamCards(teams, roundStatuses) {
               <span class="team-card-total ${totalFmt.cls}">${teamToparDisplay}</span>
             </div>
           </div>
-          <div class="table-scroll">
-          <table class="player-table">
-            <thead>
-              <tr>
-                <th>Player</th>
-                <th class="right" style="text-align:center">Thru</th>
-                <th class="right">Today</th>
-                <th class="right">Total</th>
-                <th class="right" style="padding-right:12px">Rounds</th>
-              </tr>
-            </thead>
-            <tbody>${playerRows}</tbody>
-          </table>
-          </div>
+          <div class="player-score-list">${playerRows}</div>
         </div>`;
     })
     .join('');
@@ -296,35 +294,7 @@ function renderBenchedPlayers(teams, roundStatuses) {
   grid.innerHTML = teamsWithBench
     .map((team) => {
       const playerRows = team.benchedPlayers
-        .map((p) => {
-          const toparFmt = p.notFound ? { display: 'N/A', cls: 'score-dash' } : formatScore(p.topar);
-          const statusBadge = p.cut
-            ? `<span class="status-badge status-cut">CUT</span>`
-            : p.wd
-            ? `<span class="status-badge status-wd">WD</span>`
-            : '';
-          const rounds = p.rounds
-            .map((r, ri) => roundPillHTML(r, ri === activeRound, null))
-            .join('');
-          const thruDisplay = p.thru === 'F' ? 'F' : p.thru === '-' ? '-' : `${p.thru}`;
-          const todayFmt = p.notFound
-            ? { display: '-', cls: 'score-dash' }
-            : formatScore(p.today === 'E' ? 0 : parseInt(p.today) || 0);
-
-          return `
-            <tr>
-              <td>
-                <div class="player-name">${p.name}${statusBadge}</div>
-                <div class="player-pos">${p.pos !== 'N/A' ? p.pos : ''}</div>
-              </td>
-              <td class="player-thru">${thruDisplay}</td>
-              <td class="player-today ${todayFmt.cls}">${p.notFound ? '-' : p.today}</td>
-              <td class="player-total ${toparFmt.cls}">${toparFmt.display}</td>
-              <td style="text-align:right;padding-right:12px">
-                <div class="player-rounds">${rounds}</div>
-              </td>
-            </tr>`;
-        })
+        .map((p) => playerScoreRowHTML(p, activeRound))
         .join('');
 
       return `
@@ -333,20 +303,7 @@ function renderBenchedPlayers(teams, roundStatuses) {
             <div class="bench-card-name">${team.name}</div>
             <span class="bench-card-label">BENCH</span>
           </div>
-          <div class="table-scroll">
-          <table class="player-table">
-            <thead>
-              <tr>
-                <th>Player</th>
-                <th class="right" style="text-align:center">Thru</th>
-                <th class="right">Today</th>
-                <th class="right">Total</th>
-                <th class="right" style="padding-right:12px">Rounds</th>
-              </tr>
-            </thead>
-            <tbody>${playerRows}</tbody>
-          </table>
-          </div>
+          <div class="player-score-list bench">${playerRows}</div>
         </div>`;
     })
     .join('');
