@@ -9,7 +9,7 @@ const MASTERS_API = 'https://www.masters.com/en_US/scores/feeds/2026/scores.json
 const PGA_SCOREBOARD_API = 'https://site.api.espn.com/apis/site/v2/sports/golf/pga/scoreboard';
 const PGA_EVENT_ID = '401811947';
 
-const TEAMS = {
+const MASTERS_TEAMS = {
   'Team Jeff': [
     'Xander Schauffele',
     'Tommy Fleetwood',
@@ -51,6 +51,31 @@ const TEAMS = {
     'Justin Rose',
     'Patrick Cantlay',
     'Chris Gotterup',
+  ],
+};
+
+const PGA_TEAMS = {
+  ...MASTERS_TEAMS,
+  'Team Josh': [
+    'Rory McIlroy',
+    'Matt Fitzpatrick',
+    'Collin Morikawa',
+    'Sam Burns',
+    'Harris English',
+  ],
+  'Team Ben': [
+    'Scottie Scheffler',
+    'Robert MacIntyre',
+    'Jacob Bridgeman',
+    'Akshay Bhatia',
+    'Jordan Spieth',
+  ],
+  'Team Mark': [
+    'Jon Rahm',
+    'Bryson DeChambeau',
+    'Hideki Matsuyama',
+    'Corey Conners',
+    'Sepp Straka',
   ],
 };
 
@@ -96,9 +121,9 @@ function parseEspnRoundValue(display) {
   return Number.isNaN(n) ? null : n;
 }
 
-function emptyTournamentResponse() {
+function emptyTournamentResponse(teamsConfig) {
   return {
-    teams: Object.keys(TEAMS).map((name, idx) => ({
+    teams: Object.keys(teamsConfig).map((name, idx) => ({
       name,
       players: [],
       teamTopar: 0,
@@ -126,8 +151,8 @@ async function fetchJson(url, referer) {
   return response.json();
 }
 
-function buildTeamData(playerMap, allPlayers, roundStatuses) {
-  const teams = Object.entries(TEAMS).map(([teamName, roster]) => {
+function buildTeamData(teamsConfig, playerMap, allPlayers, roundStatuses) {
+  const teams = Object.entries(teamsConfig).map(([teamName, roster]) => {
     const playerResults = roster.map((playerName) => {
       const apiName = NAME_ALIASES[playerName] || playerName;
       const p = playerMap[apiName];
@@ -217,7 +242,7 @@ async function buildMastersScoresResponse() {
     });
   }
 
-  const data = buildTeamData(playerMap, allPlayers, roundStatuses);
+  const data = buildTeamData(MASTERS_TEAMS, playerMap, allPlayers, roundStatuses);
   return {
     tournament: 'masters',
     tournamentLabel: 'The Masters',
@@ -233,7 +258,7 @@ async function buildPgaScoresResponse() {
 
   if (!event) {
     return {
-      ...emptyTournamentResponse(),
+      ...emptyTournamentResponse(PGA_TEAMS),
       tournament: 'pga',
       tournamentLabel: 'PGA Championship',
       message: 'PGA Championship has not started yet.',
@@ -294,7 +319,7 @@ async function buildPgaScoresResponse() {
     });
   });
 
-  const data = buildTeamData(playerMap, allPlayers, roundStatuses);
+  const data = buildTeamData(PGA_TEAMS, playerMap, allPlayers, roundStatuses);
   return {
     tournament: 'pga',
     tournamentLabel: 'PGA Championship',

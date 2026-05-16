@@ -19,7 +19,7 @@ PGA_EVENT_API = 'https://sports.core.api.espn.com/v2/sports/golf/leagues/pga/eve
 PGA_EVENT_ID = '401811947'
 PUBLIC_DIR = Path(__file__).parent / 'public'
 
-TEAMS = {
+MASTERS_TEAMS = {
     'Team Jeff': [
         'Xander Schauffele',
         'Tommy Fleetwood',
@@ -61,6 +61,31 @@ TEAMS = {
         'Justin Rose',
         'Patrick Cantlay',
         'Chris Gotterup',
+    ],
+}
+
+PGA_TEAMS = {
+    **MASTERS_TEAMS,
+    'Team Josh': [
+        'Rory McIlroy',
+        'Matt Fitzpatrick',
+        'Collin Morikawa',
+        'Sam Burns',
+        'Harris English',
+    ],
+    'Team Ben': [
+        'Scottie Scheffler',
+        'Robert MacIntyre',
+        'Jacob Bridgeman',
+        'Akshay Bhatia',
+        'Jordan Spieth',
+    ],
+    'Team Mark': [
+        'Jon Rahm',
+        'Bryson DeChambeau',
+        'Hideki Matsuyama',
+        'Corey Conners',
+        'Sepp Straka',
     ],
 }
 
@@ -134,9 +159,9 @@ def parse_espn_round_value(display):
         return None
 
 
-def build_empty_response():
+def build_empty_response(teams):
     team_data = []
-    for i, team_name in enumerate(TEAMS.keys()):
+    for i, team_name in enumerate(teams.keys()):
         team_data.append({
             'name': team_name,
             'players': [],
@@ -168,7 +193,7 @@ def build_masters_scores_response():
     round_statuses = list(status_round) if status_round else []
 
     team_data = []
-    for team_name, roster in TEAMS.items():
+    for team_name, roster in MASTERS_TEAMS.items():
         player_results = []
         for player_name in roster:
             api_name = NAME_ALIASES.get(player_name, player_name)
@@ -289,7 +314,7 @@ def build_pga_scores_response():
     event = next((e for e in events if e.get('id') == PGA_EVENT_ID), None)
 
     if not event:
-        out = build_empty_response()
+        out = build_empty_response(PGA_TEAMS)
         out['tournament'] = 'pga'
         out['tournamentLabel'] = 'PGA Championship'
         out['message'] = 'PGA Championship has not started yet.'
@@ -349,7 +374,7 @@ def build_pga_scores_response():
         }
 
     team_data = []
-    for team_name, roster in TEAMS.items():
+    for team_name, roster in PGA_TEAMS.items():
         player_results = []
         for player_name in roster:
             api_name = NAME_ALIASES.get(player_name, player_name)
