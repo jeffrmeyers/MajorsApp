@@ -8,6 +8,8 @@ const PORT = 3000;
 const MASTERS_API = 'https://www.masters.com/en_US/scores/feeds/2026/scores.json';
 const PGA_SCOREBOARD_API = 'https://site.api.espn.com/apis/site/v2/sports/golf/pga/scoreboard';
 const PGA_EVENT_ID = '401811947';
+const MASTERS_LOGO_URL = 'https://upload.wikimedia.org/wikipedia/commons/c/c5/Masters_Tournament.svg';
+const PGA_LOGO_URL = 'https://wp.logos-download.com/wp-content/uploads/2023/02/USPGA_2022_PGA_Championship_Logo.svg';
 
 const MASTERS_TEAMS = {
   'Team Jeff': [
@@ -111,6 +113,12 @@ function formatTeamTotal(score) {
   return score > 0 ? `+${score}` : `${score}`;
 }
 
+function scoreDisplay(score) {
+  if (score === null || score === undefined) return '-';
+  if (score === 0) return 'E';
+  return score > 0 ? `+${score}` : `${score}`;
+}
+
 function buildRoundStatusesFromState(state, period) {
   const statuses = ['N', 'N', 'N', 'N'];
   if (state === 'post') return ['F', 'F', 'F', 'F'];
@@ -172,6 +180,96 @@ function buildBenchedPlayers(teamName, playerMap) {
     const p = playerMap[apiName];
     return p ? { name: playerName, ...p } : missingPlayer(playerName);
   });
+}
+
+function leaderFromPlayers(players, nameKey) {
+  const scoredPlayers = players.filter(
+    (player) =>
+      player.topar !== null &&
+      player.topar !== undefined &&
+      player.topar !== '' &&
+      String(player.topar).toUpperCase() !== 'CUT'
+  );
+  if (scoredPlayers.length === 0) return { name: 'TBD', score: '-' };
+  const leader = scoredPlayers.reduce((best, player) =>
+    parseTopar(player.topar) < parseTopar(best.topar) ? player : best
+  );
+  return {
+    name: leader[nameKey] || 'TBD',
+    score: scoreDisplay(parseTopar(leader.topar)),
+  };
+}
+
+function projectedCutFromMastersRounds(players, roundKeys, madeCutCount) {
+  const twoRoundScores = players
+    .map((player) => {
+      let hasScore = false;
+      const total = roundKeys.reduce((sum, key) => {
+        const value = player[key]?.fantasy;
+        if (value === null || value === undefined) return sum;
+        hasScore = true;
+        return sum + value;
+      }, 0);
+      return hasScore ? total : null;
+    })
+    .filter((score) => score !== null)
+    .sort((a, b) => a - b);
+
+  return twoRoundScores.length >= madeCutCount
+    ? scoreDisplay(twoRoundScores[madeCutCount - 1])
+    : '-';
+}
+
+function buildMastersTournamentInfo(players) {
+  const cutPlayers = players.filter((player) => ['C', 'CUT'].includes(player.status));
+  const cutLine = cutPlayers.length > 0
+    ? scoreDisplay(Math.min(...cutPlayers.map((player) => parseTopar(player.topar))))
+    : projectedCutFromMastersRounds(players, ['round1', 'round2'], 50);
+
+  return {
+    logoUrl: MASTERS_LOGO_URL,
+    logoAlt: 'Masters Tournament logo',
+    cutLine,
+    cutLineLabel: cutPlayers.length > 0 ? 'Actual cut' : 'Projected cut',
+    leader: leaderFromPlayers(players, 'full_name'),
+  };
+}
+
+function projectedCutFromEspnCompetitors(competitors, madeCutCount) {
+  const twoRoundScores = competitors
+    .map((competitor) => {
+      let hasScore = false;
+      const total = (competitor.linescores || []).reduce((sum, line) => {
+        if (line.period !== 1 && line.period !== 2) return sum;
+        const value = parseEspnRoundValue(line.displayValue);
+        if (value === null || value === undefined) return sum;
+        hasScore = true;
+        return sum + value;
+      }, 0);
+      return hasScore ? total : null;
+    })
+    .filter((score) => score !== null)
+    .sort((a, b) => a - b);
+
+  return twoRoundScores.length >= madeCutCount
+    ? scoreDisplay(twoRoundScores[madeCutCount - 1])
+    : '-';
+}
+
+function buildPgaTournamentInfo(competitors, currentRound) {
+  return {
+    logoUrl: PGA_LOGO_URL,
+    logoAlt: 'PGA Championship logo',
+    cutLine: projectedCutFromEspnCompetitors(competitors, 70),
+    cutLineLabel: currentRound > 2 ? 'Actual cut' : 'Projected cut',
+    leader: leaderFromPlayers(
+      competitors.map((competitor) => ({
+        name: competitor.athlete?.fullName,
+        topar: competitor.score,
+      })),
+      'name'
+    ),
+  };
 }
 
 app.use(express.static(path.join(__dirname, 'public')));
@@ -270,6 +368,7 @@ async function buildMastersScoresResponse() {
   return {
     tournament: 'masters',
     tournamentLabel: 'The Masters',
+    tournamentInfo: buildMastersTournamentInfo(players),
     ...data,
     lastUpdated: wallClockTime || new Date().toISOString(),
     currentRound: Math.min(parseInt(currentRound, 10) || 1, 4),
@@ -285,6 +384,13 @@ async function buildPgaScoresResponse() {
       ...emptyTournamentResponse(PGA_TEAMS),
       tournament: 'pga',
       tournamentLabel: 'PGA Championship',
+      tournamentInfo: {
+        logoUrl: PGA_LOGO_URL,
+        logoAlt: 'PGA Championship logo',
+        cutLine: '-',
+        cutLineLabel: 'Projected cut',
+        leader: { name: 'TBD', score: '-' },
+      },
       message: 'PGA Championship has not started yet.',
     };
     out.teams.forEach((team) => {
@@ -351,6 +457,7 @@ async function buildPgaScoresResponse() {
   return {
     tournament: 'pga',
     tournamentLabel: 'PGA Championship',
+    tournamentInfo: buildPgaTournamentInfo(competitors, currentRound),
     ...data,
     lastUpdated: scoreboard.day?.date || new Date().toISOString(),
     currentRound,

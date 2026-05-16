@@ -50,6 +50,34 @@ function buildRoundLabel(currentRound, roundStatuses) {
   return 'Round 1';
 }
 
+function renderTournamentInfo(info) {
+  const banner = document.getElementById('tournament-info-banner');
+  if (!info) {
+    banner.classList.add('hidden');
+    banner.innerHTML = '';
+    return;
+  }
+
+  const leaderName = info.leader?.name || 'TBD';
+  const leaderScore = info.leader?.score || '-';
+  const cutLine = info.cutLine || '-';
+  const cutLabel = info.cutLineLabel || 'Cut line';
+
+  banner.innerHTML = `
+    <div class="tournament-info-logo-wrap">
+      <img class="tournament-info-logo" src="${info.logoUrl}" alt="${info.logoAlt || 'Tournament logo'}" />
+    </div>
+    <div class="tournament-info-stat">
+      <span class="tournament-info-label">${cutLabel}</span>
+      <span class="tournament-info-value">${cutLine}</span>
+    </div>
+    <div class="tournament-info-stat">
+      <span class="tournament-info-label">Individual leader</span>
+      <span class="tournament-info-value">${leaderName} <span class="tournament-info-score">${leaderScore}</span></span>
+    </div>`;
+  banner.classList.remove('hidden');
+}
+
 // ─── Donkey substitution ──────────────────────────────────────────────────────
 /**
  * For each team, cut players are assigned donkeys in roster order:
@@ -536,6 +564,7 @@ async function loadScores() {
 
     rawData = data;
 
+    renderTournamentInfo(data.tournamentInfo);
     roundBadge.textContent = buildRoundLabel(data.currentRound, data.roundStatuses);
     if (data.message) {
       roundBadge.textContent = 'Awaiting first round';

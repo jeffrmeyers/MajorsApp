@@ -17,6 +17,8 @@ MASTERS_API = 'https://www.masters.com/en_US/scores/feeds/2026/scores.json'
 PGA_SCOREBOARD_API = 'https://site.api.espn.com/apis/site/v2/sports/golf/pga/scoreboard'
 PGA_EVENT_API = 'https://sports.core.api.espn.com/v2/sports/golf/leagues/pga/events/401811947/competitions/401811947?lang=en&region=us'
 PGA_EVENT_ID = '401811947'
+MASTERS_LOGO_URL = 'https://upload.wikimedia.org/wikipedia/commons/c/c5/Masters_Tournament.svg'
+PGA_LOGO_URL = 'https://wp.logos-download.com/wp-content/uploads/2023/02/USPGA_2022_PGA_Championship_Logo.svg'
 PUBLIC_DIR = Path(__file__).parent / 'public'
 
 MASTERS_TEAMS = {
@@ -143,6 +145,16 @@ def format_team_total(score):
     return str(score)
 
 
+def score_display(score):
+    if score is None:
+        return '-'
+    if score == 0:
+        return 'E'
+    if score > 0:
+        return f'+{score}'
+    return str(score)
+
+
 def build_round_statuses_from_state(state, period):
     statuses = ['N', 'N', 'N', 'N']
     if state == 'post':
@@ -205,6 +217,95 @@ def missing_player(player_name):
         'cut': False,
         'wd': False,
         'active': False,
+    }
+
+
+def leader_from_players(players, name_key):
+    scored_players = [
+        p for p in players
+        if p.get('topar') not in (None, '') and str(p.get('topar')).upper() != 'CUT'
+    ]
+    if not scored_players:
+        return {'name': 'TBD', 'score': '-'}
+    leader = min(scored_players, key=lambda p: parse_topar(p.get('topar')))
+    return {
+        'name': leader.get(name_key) or 'TBD',
+        'score': score_display(parse_topar(leader.get('topar'))),
+    }
+
+
+def projected_cut_from_rounds(players, round_keys, made_cut_count):
+    two_round_scores = []
+    for p in players:
+        total = 0
+        has_score = False
+        for key in round_keys:
+            value = p.get(key, {}).get('fantasy')
+            if value is not None:
+                total += value
+                has_score = True
+        if has_score:
+            two_round_scores.append(total)
+    if len(two_round_scores) < made_cut_count:
+        return '-'
+    two_round_scores.sort()
+    return score_display(two_round_scores[made_cut_count - 1])
+
+
+def build_masters_tournament_info(players):
+    cut_players = [p for p in players if p.get('status') in ('C', 'CUT')]
+    if cut_players:
+        cut_line = score_display(min(parse_topar(p.get('topar')) for p in cut_players))
+        cut_label = 'Actual cut'
+    else:
+        cut_line = projected_cut_from_rounds(players, ['round1', 'round2'], 50)
+        cut_label = 'Projected cut'
+    return {
+        'logoUrl': MASTERS_LOGO_URL,
+        'logoAlt': 'Masters Tournament logo',
+        'cutLine': cut_line,
+        'cutLineLabel': cut_label,
+        'leader': leader_from_players(players, 'full_name'),
+    }
+
+
+def projected_cut_from_espn_competitors(competitors, made_cut_count):
+    two_round_scores = []
+    for c in competitors:
+        total = 0
+        has_score = False
+        for ls in c.get('linescores') or []:
+            if ls.get('period') not in (1, 2):
+                continue
+            value = parse_espn_round_value(ls.get('displayValue'))
+            if value is not None:
+                total += value
+                has_score = True
+        if has_score:
+            two_round_scores.append(total)
+    if len(two_round_scores) < made_cut_count:
+        return '-'
+    two_round_scores.sort()
+    return score_display(two_round_scores[made_cut_count - 1])
+
+
+def build_pga_tournament_info(competitors, current_round):
+    cut_label = 'Actual cut' if current_round > 2 else 'Projected cut'
+    return {
+        'logoUrl': PGA_LOGO_URL,
+        'logoAlt': 'PGA Championship logo',
+        'cutLine': projected_cut_from_espn_competitors(competitors, 70),
+        'cutLineLabel': cut_label,
+        'leader': leader_from_players(
+            [
+                {
+                    'name': (c.get('athlete') or {}).get('fullName'),
+                    'topar': c.get('score'),
+                }
+                for c in competitors
+            ],
+            'name',
+        ),
     }
 
 
@@ -325,6 +426,7 @@ def build_masters_scores_response():
     return {
         'tournament': 'masters',
         'tournamentLabel': 'The Masters',
+        'tournamentInfo': build_masters_tournament_info(players),
         'teams': team_data,
         'lastUpdated': wall_clock,
         'currentRound': current_round_out,
@@ -344,6 +446,13 @@ def build_pga_scores_response():
             team['benchedPlayers'] = [missing_player(name) for name in PGA_BENCH_PLAYERS.get(team['name'], [])]
         out['tournament'] = 'pga'
         out['tournamentLabel'] = 'PGA Championship'
+        out['tournamentInfo'] = {
+            'logoUrl': PGA_LOGO_URL,
+            'logoAlt': 'PGA Championship logo',
+            'cutLine': '-',
+            'cutLineLabel': 'Projected cut',
+            'leader': {'name': 'TBD', 'score': '-'},
+        }
         out['message'] = 'PGA Championship has not started yet.'
         try:
             event_meta = fetch_json(PGA_EVENT_API, referer='https://www.espn.com/golf/')
@@ -442,6 +551,7 @@ def build_pga_scores_response():
     return {
         'tournament': 'pga',
         'tournamentLabel': 'PGA Championship',
+        'tournamentInfo': build_pga_tournament_info(competitors, current_round),
         'teams': team_data,
         'lastUpdated': scoreboard.get('day', {}).get('date', ''),
         'currentRound': current_round,
