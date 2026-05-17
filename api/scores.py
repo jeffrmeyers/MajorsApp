@@ -78,6 +78,13 @@ PGA_TEAMS = {
         'Corey Conners',
         'Sepp Straka',
     ],
+    'Team Paul': [
+        'Ludvig Aberg',
+        'Justin Thomas',
+        'Justin Rose',
+        'JJ Spaun',
+        'Chris Gotterup',
+    ],
 }
 
 PGA_BENCH_PLAYERS = {
@@ -93,6 +100,7 @@ NAME_ALIASES = {
     'Cam Smith': 'Cameron Smith',
     'Ludvig Aberg': 'Ludvig \u00c5berg',
     'Nicolai Hojgaard': 'Nicolai Højgaard',
+    'JJ Spaun': 'J.J. Spaun',
 }
 
 

@@ -79,6 +79,13 @@ const PGA_TEAMS = {
     'Corey Conners',
     'Sepp Straka',
   ],
+  'Team Paul': [
+    'Ludvig Aberg',
+    'Justin Thomas',
+    'Justin Rose',
+    'JJ Spaun',
+    'Chris Gotterup',
+  ],
 };
 
 const PGA_BENCH_PLAYERS = {
@@ -95,6 +102,7 @@ const NAME_ALIASES = {
   'Cam Smith': 'Cameron Smith',
   'Ludvig Aberg': 'Ludvig Åberg',
   'Nicolai Hojgaard': 'Nicolai Højgaard',
+  'JJ Spaun': 'J.J. Spaun',
 };
 
 function parseTopar(topar) {
