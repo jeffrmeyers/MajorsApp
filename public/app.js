@@ -85,6 +85,7 @@ function renderTournamentInfo(info) {
  * Each assigned player's R3/R4 are replaced with their donkey's scores.
  */
 function applyDonkeySubstitution(teams, donkeys) {
+  if (activeTournament === 'pga') return teams;
   const anyDonkey = donkeys.some(Boolean);
   if (!anyDonkey) return teams;
 
@@ -372,6 +373,11 @@ function renderBenchedPlayers(teams, roundStatuses) {
 
 function renderDonkeyInfo() {
   const infoEl = document.getElementById('donkey-info');
+  if (activeTournament === 'pga') {
+    infoEl.classList.add('hidden');
+    infoEl.innerHTML = '';
+    return;
+  }
   const activeDonkeys = donkeyPlayers.filter(Boolean);
 
   if (activeDonkeys.length === 0) {
@@ -640,6 +646,7 @@ function setActiveTournament(tournament) {
   const cfg = TOURNAMENTS[tournament];
   document.getElementById('tournament-label').textContent = cfg.label;
   document.getElementById('footer-source').innerHTML = cfg.sourceHtml;
+  document.getElementById('donkey-section').classList.toggle('hidden', tournament === 'pga');
 
   const wrap = document.getElementById('leaderboard-table-wrap');
   const existing = wrap.querySelector('.error-box');

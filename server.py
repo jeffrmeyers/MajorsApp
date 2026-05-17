@@ -318,6 +318,45 @@ def build_benched_players(team_name, player_map):
     return bench
 
 
+def apply_pga_donkey_substitutions(player_results, donor_players):
+    substituted_players = []
+    cut_idx = 0
+    for player in player_results:
+        if not player.get('cut'):
+            substituted_players.append(player)
+            continue
+
+        donor = donor_players[cut_idx] if cut_idx < len(donor_players) else None
+        if not donor:
+            substituted_players.append(player)
+            cut_idx += 1
+            continue
+
+        sub = {
+            **player,
+            'rounds': [*player['rounds']],
+            'donkeyRoundIdx': [None, None, None, None],
+            'donkeySubstituted': True,
+            'donkeyNum': cut_idx + 1,
+            'donkeyName': donor['name'],
+        }
+
+        added = 0
+        for round_idx in (2, 3):
+            donor_score = donor['rounds'][round_idx]
+            if donor_score is not None:
+                sub['rounds'][round_idx] = donor_score
+                sub['donkeyRoundIdx'][round_idx] = cut_idx
+                added += donor_score
+
+        sub['topar'] = (player.get('topar') or 0) + added
+        sub['toparDisplay'] = format_team_total(sub['topar'])
+        substituted_players.append(sub)
+        cut_idx += 1
+
+    return substituted_players
+
+
 def build_masters_scores_response():
     raw = fetch_json(MASTERS_API, referer='https://www.masters.com/')
 
@@ -468,9 +507,10 @@ def build_pga_scores_response():
 
     competition = (event.get('competitions') or [{}])[0]
     competitors = competition.get('competitors') or []
-    event_status = event.get('status', {}).get('type', {})
-    state = event_status.get('state', 'pre')
-    current_round = max(1, min(4, int(event.get('status', {}).get('period') or 1)))
+    status = competition.get('status') or event.get('status', {})
+    status_type = status.get('type') or event.get('status', {}).get('type', {})
+    state = status_type.get('state', 'pre')
+    current_round = max(1, min(4, int(status.get('period') or 1)))
     round_statuses = build_round_statuses_from_state(state, current_round)
 
     player_map = {}
@@ -493,7 +533,9 @@ def build_pga_scores_response():
         round_detail = next((ls for ls in lines if ls.get('period') == current_round), None)
         holes_played = len((round_detail or {}).get('linescores') or [])
         score_display = c.get('score', 'E') or 'E'
-        player_status = 'CUT' if str(score_display).upper() == 'CUT' else ''
+        has_round_3 = any(ls.get('period') == 3 for ls in lines)
+        missed_cut = current_round > 2 and not has_round_3
+        player_status = 'CUT' if str(score_display).upper() == 'CUT' or missed_cut else ''
         player_map[full_name] = {
             'pos': str(idx + 1),
             'topar': parse_topar(score_display),
@@ -509,6 +551,16 @@ def build_pga_scores_response():
             'active': state == 'in',
         }
 
+    donor_players = sorted(
+        (
+            {'name': full_name, **p}
+            for full_name, p in player_map.items()
+            if not p['cut'] and not p['wd'] and not p['notFound']
+        ),
+        key=lambda p: p['topar'],
+        reverse=True,
+    )
+
     team_data = []
     for team_name, roster in PGA_TEAMS.items():
         player_results = []
@@ -520,6 +572,7 @@ def build_pga_scores_response():
             else:
                 player_results.append({'name': player_name, **p})
 
+        player_results = apply_pga_donkey_substitutions(player_results, donor_players)
         team_topar = sum(
             (r['topar'] or 0)
             for r in player_results

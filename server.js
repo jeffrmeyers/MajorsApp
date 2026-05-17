@@ -182,6 +182,43 @@ function buildBenchedPlayers(teamName, playerMap) {
   });
 }
 
+function applyPgaDonkeySubstitutions(playerResults, donorPlayers) {
+  let cutIdx = 0;
+  return playerResults.map((player) => {
+    if (!player.cut) return player;
+
+    const donor = donorPlayers[cutIdx];
+    if (!donor) {
+      cutIdx += 1;
+      return player;
+    }
+
+    const sub = {
+      ...player,
+      rounds: [...player.rounds],
+      donkeyRoundIdx: [null, null, null, null],
+      donkeySubstituted: true,
+      donkeyNum: cutIdx + 1,
+      donkeyName: donor.name,
+    };
+
+    let added = 0;
+    [2, 3].forEach((roundIdx) => {
+      const donorScore = donor.rounds[roundIdx];
+      if (donorScore !== null && donorScore !== undefined) {
+        sub.rounds[roundIdx] = donorScore;
+        sub.donkeyRoundIdx[roundIdx] = cutIdx;
+        added += donorScore;
+      }
+    });
+
+    sub.topar = (player.topar || 0) + added;
+    sub.toparDisplay = formatTeamTotal(sub.topar);
+    cutIdx += 1;
+    return sub;
+  });
+}
+
 function leaderFromPlayers(players, nameKey) {
   const scoredPlayers = players.filter(
     (player) =>
@@ -286,9 +323,9 @@ async function fetchJson(url, referer) {
   return response.json();
 }
 
-function buildTeamData(teamsConfig, playerMap, allPlayers, roundStatuses) {
+function buildTeamData(teamsConfig, playerMap, allPlayers, roundStatuses, donorPlayers = []) {
   const teams = Object.entries(teamsConfig).map(([teamName, roster]) => {
-    const playerResults = roster.map((playerName) => {
+    let playerResults = roster.map((playerName) => {
       const apiName = NAME_ALIASES[playerName] || playerName;
       const p = playerMap[apiName];
 
@@ -298,6 +335,9 @@ function buildTeamData(teamsConfig, playerMap, allPlayers, roundStatuses) {
 
       return { name: playerName, ...p };
     });
+    if (teamsConfig === PGA_TEAMS) {
+      playerResults = applyPgaDonkeySubstitutions(playerResults, donorPlayers);
+    }
 
     const teamTopar = playerResults.reduce((sum, p) => {
       if (p.notFound || p.wd) return sum;
@@ -427,7 +467,9 @@ async function buildPgaScoresResponse() {
     const roundDetail = lines.find((line) => line.period === currentRound);
     const holesPlayed = (roundDetail?.linescores || []).length;
     const scoreDisplay = competitor.score || 'E';
-    const playerStatus = String(scoreDisplay).toUpperCase() === 'CUT' ? 'CUT' : '';
+    const hasRound3 = lines.some((line) => line.period === 3);
+    const missedCut = currentRound > 2 && !hasRound3;
+    const playerStatus = String(scoreDisplay).toUpperCase() === 'CUT' || missedCut ? 'CUT' : '';
 
     const parsedPlayer = {
       pos: String(idx + 1),
@@ -453,7 +495,12 @@ async function buildPgaScoresResponse() {
     });
   });
 
-  const data = buildTeamData(PGA_TEAMS, playerMap, allPlayers, roundStatuses);
+  const donorPlayers = Object.entries(playerMap)
+    .map(([name, player]) => ({ name, ...player }))
+    .filter((player) => !player.cut && !player.wd && !player.notFound)
+    .sort((a, b) => b.topar - a.topar);
+
+  const data = buildTeamData(PGA_TEAMS, playerMap, allPlayers, roundStatuses, donorPlayers);
   return {
     tournament: 'pga',
     tournamentLabel: 'PGA Championship',
