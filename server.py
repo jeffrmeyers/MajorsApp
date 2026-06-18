@@ -21,7 +21,7 @@ US_OPEN_EVENT_API = 'https://sports.core.api.espn.com/v2/sports/golf/leagues/pga
 US_OPEN_EVENT_ID = '401811952'
 MASTERS_LOGO_URL = 'https://upload.wikimedia.org/wikipedia/commons/c/c5/Masters_Tournament.svg'
 PGA_LOGO_URL = 'https://wp.logos-download.com/wp-content/uploads/2023/02/USPGA_2022_PGA_Championship_Logo.svg'
-US_OPEN_LOGO_URL = 'https://upload.wikimedia.org/wikipedia/commons/6/69/2015USOpenLogo.svg'
+US_OPEN_LOGO_URL = 'https://filecache.mediaroom.com/mr5mr_usga2/191226/2026-USO_SHINNECOCK_FULL-COLOR%20%281%29.jpg'
 PUBLIC_DIR = Path(__file__).parent / 'public'
 
 MASTERS_TEAMS = {
@@ -695,7 +695,7 @@ def build_us_open_scores_response():
         'usopen',
         'U.S. Open',
         US_OPEN_LOGO_URL,
-        'U.S. Open logo',
+        'U.S. Open at Shinnecock Hills logo',
         made_cut_count=60,
     )
 
