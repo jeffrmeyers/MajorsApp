@@ -6,10 +6,12 @@ const app = express();
 const PORT = 3000;
 
 const MASTERS_API = 'https://www.masters.com/en_US/scores/feeds/2026/scores.json';
-const PGA_SCOREBOARD_API = 'https://site.api.espn.com/apis/site/v2/sports/golf/pga/scoreboard';
+const ESPN_SCOREBOARD_API = 'https://site.api.espn.com/apis/site/v2/sports/golf/pga/scoreboard';
 const PGA_EVENT_ID = '401811947';
+const US_OPEN_EVENT_ID = '401811952';
 const MASTERS_LOGO_URL = 'https://upload.wikimedia.org/wikipedia/commons/c/c5/Masters_Tournament.svg';
 const PGA_LOGO_URL = 'https://wp.logos-download.com/wp-content/uploads/2023/02/USPGA_2022_PGA_Championship_Logo.svg';
+const US_OPEN_LOGO_URL = 'https://upload.wikimedia.org/wikipedia/commons/6/69/2015USOpenLogo.svg';
 
 const MASTERS_TEAMS = {
   'Team Jeff': [
@@ -97,6 +99,40 @@ const PGA_BENCH_PLAYERS = {
   'Team Paul': ['Patrick Cantlay', 'Si Woo Kim'],
 };
 
+const US_OPEN_TEAMS = {
+  ...PGA_TEAMS,
+  'Team John': [
+    'Cameron Young',
+    'Viktor Hovland',
+    'Russell Henley',
+    'Brian Harman',
+    'Adam Scott',
+  ],
+  'Team Ben': [
+    'Scottie Scheffler',
+    'Robert MacIntyre',
+    'Patrick Reed',
+    'Akshay Bhatia',
+    'Jordan Spieth',
+  ],
+  'Team Paul': [
+    'Ludvig Aberg',
+    'Justin Thomas',
+    'Justin Rose',
+    'Patrick Cantlay',
+    'Chris Gotterup',
+  ],
+};
+
+const US_OPEN_BENCH_PLAYERS = {
+  'Team Jeff': ['Maverick McNealy', 'Sahith Theegala'],
+  'Team Josh': ['Min Woo Lee', 'Nicolai Hojgaard'],
+  'Team John': ['Brooks Koepka', 'Kurt Kitayama'],
+  'Team Ben': ['Jake Knapp', 'Jacob Bridgeman'],
+  'Team Mark': ['Cam Smith', 'Gary Woodland'],
+  'Team Paul': ['JJ Spaun', 'Si Woo Kim'],
+};
+
 // Name aliases to match Masters.com data
 const NAME_ALIASES = {
   'Cam Smith': 'Cameron Smith',
@@ -182,15 +218,15 @@ function missingPlayer(playerName) {
   };
 }
 
-function buildBenchedPlayers(teamName, playerMap) {
-  return (PGA_BENCH_PLAYERS[teamName] || []).map((playerName) => {
+function buildBenchedPlayers(teamName, playerMap, benchPlayers) {
+  return (benchPlayers[teamName] || []).map((playerName) => {
     const apiName = NAME_ALIASES[playerName] || playerName;
     const p = playerMap[apiName];
     return p ? { name: playerName, ...p } : missingPlayer(playerName);
   });
 }
 
-function applyPgaDonkeySubstitutions(playerResults, donorPlayers) {
+function applyEspnDonkeySubstitutions(playerResults, donorPlayers) {
   let cutIdx = 0;
   return playerResults.map((player) => {
     if (!player.cut) return player;
@@ -301,11 +337,11 @@ function projectedCutFromEspnCompetitors(competitors, madeCutCount) {
     : '-';
 }
 
-function buildPgaTournamentInfo(competitors, currentRound) {
+function buildEspnTournamentInfo(competitors, currentRound, logoUrl, logoAlt, madeCutCount) {
   return {
-    logoUrl: PGA_LOGO_URL,
-    logoAlt: 'PGA Championship logo',
-    cutLine: projectedCutFromEspnCompetitors(competitors, 70),
+    logoUrl,
+    logoAlt,
+    cutLine: projectedCutFromEspnCompetitors(competitors, madeCutCount),
     cutLineLabel: currentRound > 2 ? 'Actual cut' : 'Projected cut',
     leader: leaderFromPlayers(
       competitors.map((competitor) => ({
@@ -331,7 +367,13 @@ async function fetchJson(url, referer) {
   return response.json();
 }
 
-function buildTeamData(teamsConfig, playerMap, allPlayers, roundStatuses, donorPlayers = []) {
+function buildTeamData(teamsConfig, playerMap, allPlayers, roundStatuses, options = {}) {
+  const {
+    donorPlayers = [],
+    benchPlayers = null,
+    applyDonkey = false,
+  } = options;
+
   const teams = Object.entries(teamsConfig).map(([teamName, roster]) => {
     let playerResults = roster.map((playerName) => {
       const apiName = NAME_ALIASES[playerName] || playerName;
@@ -343,8 +385,8 @@ function buildTeamData(teamsConfig, playerMap, allPlayers, roundStatuses, donorP
 
       return { name: playerName, ...p };
     });
-    if (teamsConfig === PGA_TEAMS) {
-      playerResults = applyPgaDonkeySubstitutions(playerResults, donorPlayers);
+    if (applyDonkey) {
+      playerResults = applyEspnDonkeySubstitutions(playerResults, donorPlayers);
     }
 
     const teamTopar = playerResults.reduce((sum, p) => {
@@ -355,7 +397,7 @@ function buildTeamData(teamsConfig, playerMap, allPlayers, roundStatuses, donorP
     return {
       name: teamName,
       players: playerResults,
-      benchedPlayers: teamsConfig === PGA_TEAMS ? buildBenchedPlayers(teamName, playerMap) : [],
+      benchedPlayers: benchPlayers ? buildBenchedPlayers(teamName, playerMap, benchPlayers) : [],
       teamTopar,
       teamToparDisplay: formatTeamTotal(teamTopar),
     };
@@ -423,26 +465,37 @@ async function buildMastersScoresResponse() {
   };
 }
 
-async function buildPgaScoresResponse() {
-  const scoreboard = await fetchJson(PGA_SCOREBOARD_API, 'https://www.espn.com/golf/');
-  const event = (scoreboard.events || []).find((e) => e.id === PGA_EVENT_ID);
+async function buildEspnScoresResponse(config) {
+  const {
+    eventId,
+    teams,
+    benchPlayers,
+    tournamentKey,
+    tournamentLabel,
+    logoUrl,
+    logoAlt,
+    madeCutCount,
+  } = config;
+
+  const scoreboard = await fetchJson(ESPN_SCOREBOARD_API, 'https://www.espn.com/golf/');
+  const event = (scoreboard.events || []).find((e) => e.id === eventId);
 
   if (!event) {
     const out = {
-      ...emptyTournamentResponse(PGA_TEAMS),
-      tournament: 'pga',
-      tournamentLabel: 'PGA Championship',
+      ...emptyTournamentResponse(teams),
+      tournament: tournamentKey,
+      tournamentLabel,
       tournamentInfo: {
-        logoUrl: PGA_LOGO_URL,
-        logoAlt: 'PGA Championship logo',
+        logoUrl,
+        logoAlt,
         cutLine: '-',
         cutLineLabel: 'Projected cut',
         leader: { name: 'TBD', score: '-' },
       },
-      message: 'PGA Championship has not started yet.',
+      message: `${tournamentLabel} has not started yet.`,
     };
     out.teams.forEach((team) => {
-      team.benchedPlayers = (PGA_BENCH_PLAYERS[team.name] || []).map(missingPlayer);
+      team.benchedPlayers = (benchPlayers[team.name] || []).map(missingPlayer);
     });
     return out;
   }
@@ -508,15 +561,45 @@ async function buildPgaScoresResponse() {
     .filter((player) => !player.cut && !player.wd && !player.notFound)
     .sort((a, b) => b.topar - a.topar);
 
-  const data = buildTeamData(PGA_TEAMS, playerMap, allPlayers, roundStatuses, donorPlayers);
+  const data = buildTeamData(teams, playerMap, allPlayers, roundStatuses, {
+    donorPlayers,
+    benchPlayers,
+    applyDonkey: true,
+  });
   return {
-    tournament: 'pga',
-    tournamentLabel: 'PGA Championship',
-    tournamentInfo: buildPgaTournamentInfo(competitors, currentRound),
+    tournament: tournamentKey,
+    tournamentLabel,
+    tournamentInfo: buildEspnTournamentInfo(competitors, currentRound, logoUrl, logoAlt, madeCutCount),
     ...data,
     lastUpdated: scoreboard.day?.date || new Date().toISOString(),
     currentRound,
   };
+}
+
+async function buildPgaScoresResponse() {
+  return buildEspnScoresResponse({
+    eventId: PGA_EVENT_ID,
+    teams: PGA_TEAMS,
+    benchPlayers: PGA_BENCH_PLAYERS,
+    tournamentKey: 'pga',
+    tournamentLabel: 'PGA Championship',
+    logoUrl: PGA_LOGO_URL,
+    logoAlt: 'PGA Championship logo',
+    madeCutCount: 70,
+  });
+}
+
+async function buildUsOpenScoresResponse() {
+  return buildEspnScoresResponse({
+    eventId: US_OPEN_EVENT_ID,
+    teams: US_OPEN_TEAMS,
+    benchPlayers: US_OPEN_BENCH_PLAYERS,
+    tournamentKey: 'usopen',
+    tournamentLabel: 'U.S. Open',
+    logoUrl: US_OPEN_LOGO_URL,
+    logoAlt: 'U.S. Open logo',
+    madeCutCount: 60,
+  });
 }
 
 app.get('/api/scores', async (req, res) => {
@@ -524,6 +607,8 @@ app.get('/api/scores', async (req, res) => {
     const tournament = String(req.query.tournament || 'masters').toLowerCase();
     const data = tournament === 'pga'
       ? await buildPgaScoresResponse()
+      : tournament === 'usopen'
+      ? await buildUsOpenScoresResponse()
       : await buildMastersScoresResponse();
     res.json(data);
   } catch (err) {

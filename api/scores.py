@@ -4,11 +4,14 @@ from http.server import BaseHTTPRequestHandler
 from urllib.parse import parse_qs, urlparse
 
 MASTERS_API = 'https://www.masters.com/en_US/scores/feeds/2026/scores.json'
-PGA_SCOREBOARD_API = 'https://site.api.espn.com/apis/site/v2/sports/golf/pga/scoreboard'
+ESPN_SCOREBOARD_API = 'https://site.api.espn.com/apis/site/v2/sports/golf/pga/scoreboard'
 PGA_EVENT_API = 'https://sports.core.api.espn.com/v2/sports/golf/leagues/pga/events/401811947/competitions/401811947?lang=en&region=us'
 PGA_EVENT_ID = '401811947'
+US_OPEN_EVENT_API = 'https://sports.core.api.espn.com/v2/sports/golf/leagues/pga/events/401811952/competitions/401811952?lang=en&region=us'
+US_OPEN_EVENT_ID = '401811952'
 MASTERS_LOGO_URL = 'https://upload.wikimedia.org/wikipedia/commons/c/c5/Masters_Tournament.svg'
 PGA_LOGO_URL = 'https://wp.logos-download.com/wp-content/uploads/2023/02/USPGA_2022_PGA_Championship_Logo.svg'
+US_OPEN_LOGO_URL = 'https://upload.wikimedia.org/wikipedia/commons/6/69/2015USOpenLogo.svg'
 
 MASTERS_TEAMS = {
     'Team Jeff': [
@@ -94,6 +97,40 @@ PGA_BENCH_PLAYERS = {
     'Team Ben': ['Jake Knapp', 'Patrick Reed'],
     'Team Mark': ['Cam Smith', 'Gary Woodland'],
     'Team Paul': ['Patrick Cantlay', 'Si Woo Kim'],
+}
+
+US_OPEN_TEAMS = {
+    **PGA_TEAMS,
+    'Team John': [
+        'Cameron Young',
+        'Viktor Hovland',
+        'Russell Henley',
+        'Brian Harman',
+        'Adam Scott',
+    ],
+    'Team Ben': [
+        'Scottie Scheffler',
+        'Robert MacIntyre',
+        'Patrick Reed',
+        'Akshay Bhatia',
+        'Jordan Spieth',
+    ],
+    'Team Paul': [
+        'Ludvig Aberg',
+        'Justin Thomas',
+        'Justin Rose',
+        'Patrick Cantlay',
+        'Chris Gotterup',
+    ],
+}
+
+US_OPEN_BENCH_PLAYERS = {
+    'Team Jeff': ['Maverick McNealy', 'Sahith Theegala'],
+    'Team Josh': ['Min Woo Lee', 'Nicolai Hojgaard'],
+    'Team John': ['Brooks Koepka', 'Kurt Kitayama'],
+    'Team Ben': ['Jake Knapp', 'Jacob Bridgeman'],
+    'Team Mark': ['Cam Smith', 'Gary Woodland'],
+    'Team Paul': ['JJ Spaun', 'Si Woo Kim'],
 }
 
 NAME_ALIASES = {
@@ -276,12 +313,12 @@ def projected_cut_from_espn_competitors(competitors, made_cut_count):
     return score_display(two_round_scores[made_cut_count - 1])
 
 
-def build_pga_tournament_info(competitors, current_round):
+def build_espn_tournament_info(competitors, current_round, logo_url, logo_alt, made_cut_count):
     cut_label = 'Actual cut' if current_round > 2 else 'Projected cut'
     return {
-        'logoUrl': PGA_LOGO_URL,
-        'logoAlt': 'PGA Championship logo',
-        'cutLine': projected_cut_from_espn_competitors(competitors, 70),
+        'logoUrl': logo_url,
+        'logoAlt': logo_alt,
+        'cutLine': projected_cut_from_espn_competitors(competitors, made_cut_count),
         'cutLineLabel': cut_label,
         'leader': leader_from_players(
             [
@@ -296,16 +333,16 @@ def build_pga_tournament_info(competitors, current_round):
     }
 
 
-def build_benched_players(team_name, player_map):
+def build_benched_players(team_name, player_map, bench_players):
     bench = []
-    for player_name in PGA_BENCH_PLAYERS.get(team_name, []):
+    for player_name in bench_players.get(team_name, []):
         api_name = NAME_ALIASES.get(player_name, player_name)
         p = player_map.get(api_name)
         bench.append({'name': player_name, **p} if p else missing_player(player_name))
     return bench
 
 
-def apply_pga_donkey_substitutions(player_results, donor_players):
+def apply_espn_donkey_substitutions(player_results, donor_players):
     substituted_players = []
     cut_idx = 0
     for player in player_results:
@@ -456,33 +493,45 @@ def build_masters_scores_response():
     }
 
 
-def build_pga_scores_response():
-    scoreboard = fetch_json(PGA_SCOREBOARD_API, referer='https://www.espn.com/golf/')
+def build_espn_scores_response(
+    event_id,
+    event_api,
+    teams,
+    bench_players,
+    tournament_key,
+    tournament_label,
+    logo_url,
+    logo_alt,
+    made_cut_count=70,
+):
+    scoreboard = fetch_json(ESPN_SCOREBOARD_API, referer='https://www.espn.com/golf/')
     events = scoreboard.get('events', [])
-    event = next((e for e in events if e.get('id') == PGA_EVENT_ID), None)
+    event = next((e for e in events if e.get('id') == event_id), None)
 
     if not event:
-        out = build_empty_response(PGA_TEAMS)
+        out = build_empty_response(teams)
         for team in out['teams']:
-            team['benchedPlayers'] = [missing_player(name) for name in PGA_BENCH_PLAYERS.get(team['name'], [])]
-        out['tournament'] = 'pga'
-        out['tournamentLabel'] = 'PGA Championship'
+            team['benchedPlayers'] = [
+                missing_player(name) for name in bench_players.get(team['name'], [])
+            ]
+        out['tournament'] = tournament_key
+        out['tournamentLabel'] = tournament_label
         out['tournamentInfo'] = {
-            'logoUrl': PGA_LOGO_URL,
-            'logoAlt': 'PGA Championship logo',
+            'logoUrl': logo_url,
+            'logoAlt': logo_alt,
             'cutLine': '-',
             'cutLineLabel': 'Projected cut',
             'leader': {'name': 'TBD', 'score': '-'},
         }
-        out['message'] = 'PGA Championship has not started yet.'
+        out['message'] = f'{tournament_label} has not started yet.'
         try:
-            event_meta = fetch_json(PGA_EVENT_API, referer='https://www.espn.com/golf/')
+            event_meta = fetch_json(event_api, referer='https://www.espn.com/golf/')
             status_ref = event_meta.get('status', {}).get('$ref')
             if status_ref:
                 status = fetch_json(status_ref)
                 detail = status.get('type', {}).get('detail', '')
                 if detail:
-                    out['message'] = f'PGA Championship starts {detail}.'
+                    out['message'] = f'{tournament_label} starts {detail}.'
         except Exception:
             pass
         return out
@@ -547,7 +596,7 @@ def build_pga_scores_response():
     )
 
     team_data = []
-    for team_name, roster in PGA_TEAMS.items():
+    for team_name, roster in teams.items():
         player_results = []
         for player_name in roster:
             api_name = NAME_ALIASES.get(player_name, player_name)
@@ -557,7 +606,7 @@ def build_pga_scores_response():
             else:
                 player_results.append({'name': player_name, **p})
 
-        player_results = apply_pga_donkey_substitutions(player_results, donor_players)
+        player_results = apply_espn_donkey_substitutions(player_results, donor_players)
         team_topar = sum(
             (r['topar'] or 0)
             for r in player_results
@@ -566,7 +615,7 @@ def build_pga_scores_response():
         team_data.append({
             'name': team_name,
             'players': player_results,
-            'benchedPlayers': build_benched_players(team_name, player_map),
+            'benchedPlayers': build_benched_players(team_name, player_map, bench_players),
             'teamTopar': team_topar,
             'teamToparDisplay': format_team_total(team_topar),
         })
@@ -587,9 +636,11 @@ def build_pga_scores_response():
     all_players_out.sort(key=lambda p: p['name'])
 
     return {
-        'tournament': 'pga',
-        'tournamentLabel': 'PGA Championship',
-        'tournamentInfo': build_pga_tournament_info(competitors, current_round),
+        'tournament': tournament_key,
+        'tournamentLabel': tournament_label,
+        'tournamentInfo': build_espn_tournament_info(
+            competitors, current_round, logo_url, logo_alt, made_cut_count
+        ),
         'teams': team_data,
         'lastUpdated': scoreboard.get('day', {}).get('date', ''),
         'currentRound': current_round,
@@ -598,10 +649,40 @@ def build_pga_scores_response():
     }
 
 
+def build_pga_scores_response():
+    return build_espn_scores_response(
+        PGA_EVENT_ID,
+        PGA_EVENT_API,
+        PGA_TEAMS,
+        PGA_BENCH_PLAYERS,
+        'pga',
+        'PGA Championship',
+        PGA_LOGO_URL,
+        'PGA Championship logo',
+        made_cut_count=70,
+    )
+
+
+def build_us_open_scores_response():
+    return build_espn_scores_response(
+        US_OPEN_EVENT_ID,
+        US_OPEN_EVENT_API,
+        US_OPEN_TEAMS,
+        US_OPEN_BENCH_PLAYERS,
+        'usopen',
+        'U.S. Open',
+        US_OPEN_LOGO_URL,
+        'U.S. Open logo',
+        made_cut_count=60,
+    )
+
+
 def build_scores_response(tournament='masters'):
     tournament_key = (tournament or 'masters').lower()
     if tournament_key == 'pga':
         return build_pga_scores_response()
+    if tournament_key == 'usopen':
+        return build_us_open_scores_response()
     return build_masters_scores_response()
 
 

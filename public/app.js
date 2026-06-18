@@ -2,7 +2,7 @@
 let autoRefreshTimer = null;
 let rawData = null;
 let donkeyPlayers = [null, null]; // [donkey1, donkey2]
-let activeTournament = 'pga';
+let activeTournament = 'usopen';
 
 const TOURNAMENTS = {
   masters: {
@@ -13,7 +13,13 @@ const TOURNAMENTS = {
     label: 'PGA CHAMPIONSHIP · 2026',
     sourceHtml: 'Scores sourced from <a href="https://www.espn.com/golf/leaderboard?tournamentId=401811947" target="_blank">ESPN PGA leaderboard feed</a> · Auto-refreshes every 60 seconds',
   },
+  usopen: {
+    label: 'U.S. OPEN · 2026',
+    sourceHtml: 'Scores sourced from <a href="https://www.espn.com/golf/leaderboard?tournamentId=401811952" target="_blank">ESPN U.S. Open leaderboard feed</a> · Auto-refreshes every 60 seconds',
+  },
 };
+
+const ESPN_TOURNAMENTS = new Set(['pga', 'usopen']);
 
 function donkeyKeysFor(tournament) {
   const prefix = `${tournament}:`;
@@ -85,7 +91,7 @@ function renderTournamentInfo(info) {
  * Each assigned player's R3/R4 are replaced with their donkey's scores.
  */
 function applyDonkeySubstitution(teams, donkeys) {
-  if (activeTournament === 'pga') return teams;
+  if (ESPN_TOURNAMENTS.has(activeTournament)) return teams;
   const anyDonkey = donkeys.some(Boolean);
   if (!anyDonkey) return teams;
 
@@ -373,7 +379,7 @@ function renderBenchedPlayers(teams, roundStatuses) {
 
 function renderDonkeyInfo() {
   const infoEl = document.getElementById('donkey-info');
-  if (activeTournament === 'pga') {
+  if (ESPN_TOURNAMENTS.has(activeTournament)) {
     infoEl.classList.add('hidden');
     infoEl.innerHTML = '';
     return;
@@ -646,7 +652,7 @@ function setActiveTournament(tournament) {
   const cfg = TOURNAMENTS[tournament];
   document.getElementById('tournament-label').textContent = cfg.label;
   document.getElementById('footer-source').innerHTML = cfg.sourceHtml;
-  document.getElementById('donkey-section').classList.toggle('hidden', tournament === 'pga');
+  document.getElementById('donkey-section').classList.toggle('hidden', ESPN_TOURNAMENTS.has(tournament));
 
   const wrap = document.getElementById('leaderboard-table-wrap');
   const existing = wrap.querySelector('.error-box');
