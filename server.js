@@ -7,7 +7,9 @@ const PORT = 3000;
 
 const MASTERS_API = 'https://www.masters.com/en_US/scores/feeds/2026/scores.json';
 const ESPN_SCOREBOARD_API = 'https://site.api.espn.com/apis/site/v2/sports/golf/pga/scoreboard';
+const PGA_EVENT_API = 'https://sports.core.api.espn.com/v2/sports/golf/leagues/pga/events/401811947/competitions/401811947?lang=en&region=us';
 const PGA_EVENT_ID = '401811947';
+const US_OPEN_EVENT_API = 'https://sports.core.api.espn.com/v2/sports/golf/leagues/pga/events/401811952/competitions/401811952?lang=en&region=us';
 const US_OPEN_EVENT_ID = '401811952';
 const MASTERS_LOGO_URL = 'https://upload.wikimedia.org/wikipedia/commons/c/c5/Masters_Tournament.svg';
 const PGA_LOGO_URL = 'https://wp.logos-download.com/wp-content/uploads/2023/02/USPGA_2022_PGA_Championship_Logo.svg';
@@ -367,6 +369,33 @@ async function fetchJson(url, referer) {
   return response.json();
 }
 
+function scoreboardDateParam(isoDate) {
+  if (!isoDate) return null;
+  return isoDate.slice(0, 10).replace(/-/g, '');
+}
+
+async function fetchEspnEvent(eventId, eventApi) {
+  const referer = 'https://www.espn.com/golf/';
+  const scoreboard = await fetchJson(ESPN_SCOREBOARD_API, referer);
+  let event = (scoreboard.events || []).find((entry) => entry.id === eventId);
+  if (event) return { event, scoreboard };
+
+  try {
+    const eventMeta = await fetchJson(eventApi, referer);
+    for (const dateField of ['endDate', 'date']) {
+      const dateParam = scoreboardDateParam(eventMeta[dateField]);
+      if (!dateParam) continue;
+      const datedScoreboard = await fetchJson(`${ESPN_SCOREBOARD_API}?dates=${dateParam}`, referer);
+      event = (datedScoreboard.events || []).find((entry) => entry.id === eventId);
+      if (event) return { event, scoreboard: datedScoreboard };
+    }
+  } catch (err) {
+    // Fall through to empty response handling below.
+  }
+
+  return { event: null, scoreboard };
+}
+
 function buildTeamData(teamsConfig, playerMap, allPlayers, roundStatuses, options = {}) {
   const {
     donorPlayers = [],
@@ -468,6 +497,7 @@ async function buildMastersScoresResponse() {
 async function buildEspnScoresResponse(config) {
   const {
     eventId,
+    eventApi,
     teams,
     benchPlayers,
     tournamentKey,
@@ -477,8 +507,7 @@ async function buildEspnScoresResponse(config) {
     madeCutCount,
   } = config;
 
-  const scoreboard = await fetchJson(ESPN_SCOREBOARD_API, 'https://www.espn.com/golf/');
-  const event = (scoreboard.events || []).find((e) => e.id === eventId);
+  const { event, scoreboard } = await fetchEspnEvent(eventId, eventApi);
 
   if (!event) {
     const out = {
@@ -579,6 +608,7 @@ async function buildEspnScoresResponse(config) {
 async function buildPgaScoresResponse() {
   return buildEspnScoresResponse({
     eventId: PGA_EVENT_ID,
+    eventApi: PGA_EVENT_API,
     teams: PGA_TEAMS,
     benchPlayers: PGA_BENCH_PLAYERS,
     tournamentKey: 'pga',
@@ -592,6 +622,7 @@ async function buildPgaScoresResponse() {
 async function buildUsOpenScoresResponse() {
   return buildEspnScoresResponse({
     eventId: US_OPEN_EVENT_ID,
+    eventApi: US_OPEN_EVENT_API,
     teams: US_OPEN_TEAMS,
     benchPlayers: US_OPEN_BENCH_PLAYERS,
     tournamentKey: 'usopen',

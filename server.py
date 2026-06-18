@@ -182,6 +182,41 @@ def fetch_json(url, referer=''):
         return json.loads(resp.read().decode('utf-8'))
 
 
+def scoreboard_date_param(iso_date):
+    if not iso_date:
+        return None
+    return iso_date[:10].replace('-', '')
+
+
+def fetch_espn_event(event_id, event_api):
+    referer = 'https://www.espn.com/golf/'
+    scoreboard = fetch_json(ESPN_SCOREBOARD_API, referer=referer)
+    event = next((e for e in scoreboard.get('events', []) if e.get('id') == event_id), None)
+    if event:
+        return event, scoreboard
+
+    try:
+        event_meta = fetch_json(event_api, referer=referer)
+        for date_field in ('endDate', 'date'):
+            date_param = scoreboard_date_param(event_meta.get(date_field))
+            if not date_param:
+                continue
+            dated_scoreboard = fetch_json(
+                f'{ESPN_SCOREBOARD_API}?dates={date_param}',
+                referer=referer,
+            )
+            event = next(
+                (e for e in dated_scoreboard.get('events', []) if e.get('id') == event_id),
+                None,
+            )
+            if event:
+                return event, dated_scoreboard
+    except Exception:
+        pass
+
+    return None, scoreboard
+
+
 def format_team_total(score):
     if score == 0:
         return 'E'
@@ -530,9 +565,7 @@ def build_espn_scores_response(
     logo_alt,
     made_cut_count=70,
 ):
-    scoreboard = fetch_json(ESPN_SCOREBOARD_API, referer='https://www.espn.com/golf/')
-    events = scoreboard.get('events', [])
-    event = next((e for e in events if e.get('id') == event_id), None)
+    event, scoreboard = fetch_espn_event(event_id, event_api)
 
     if not event:
         out = build_empty_response(teams)
