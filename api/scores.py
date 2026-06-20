@@ -133,6 +133,8 @@ US_OPEN_BENCH_PLAYERS = {
     'Team Paul': ['JJ Spaun', 'Si Woo Kim'],
 }
 
+US_OPEN_DONKEY_PLAYERS = ['Gary Woodland', 'Marek Flemming', 'Erik Lee']
+
 NAME_ALIASES = {
     'Cam Smith': 'Cameron Smith',
     'Ludvig Aberg': 'Ludvig \u00c5berg',
@@ -600,6 +602,7 @@ def build_espn_scores_response(
     logo_url,
     logo_alt,
     made_cut_count=70,
+    preset_donkey_players=None,
 ):
     event, scoreboard = fetch_espn_event(event_id, event_api)
 
@@ -681,15 +684,22 @@ def build_espn_scores_response(
             'active': state == 'in',
         }
 
-    donor_players = sorted(
-        (
-            {'name': full_name, **p}
-            for full_name, p in player_map.items()
-            if not p['cut'] and not p['wd'] and not p['notFound']
-        ),
-        key=lambda p: p['topar'],
-        reverse=True,
-    )
+    if preset_donkey_players:
+        donor_players = []
+        for name in preset_donkey_players:
+            api_name = NAME_ALIASES.get(name, name)
+            p = player_map.get(api_name)
+            donor_players.append({'name': name, **p} if p else missing_player(name))
+    else:
+        donor_players = sorted(
+            (
+                {'name': full_name, **p}
+                for full_name, p in player_map.items()
+                if not p['cut'] and not p['wd'] and not p['notFound']
+            ),
+            key=lambda p: p['topar'],
+            reverse=True,
+        )
 
     team_data = []
     for team_name, roster in teams.items():
@@ -731,6 +741,20 @@ def build_espn_scores_response(
         })
     all_players_out.sort(key=lambda p: p['name'])
 
+    donkey_players_info = None
+    if preset_donkey_players:
+        donkey_players_info = []
+        for i, d in enumerate(donor_players):
+            donkey_players_info.append({
+                'num': i + 1,
+                'name': d['name'],
+                'pos': d.get('pos', '-'),
+                'topar': d.get('topar'),
+                'toparDisplay': d.get('toparDisplay', 'N/A'),
+                'status': d.get('status', ''),
+                'rounds': d.get('rounds', [None, None, None, None]),
+            })
+
     return {
         'tournament': tournament_key,
         'tournamentLabel': tournament_label,
@@ -742,6 +766,7 @@ def build_espn_scores_response(
         'currentRound': current_round,
         'roundStatuses': round_statuses,
         'allPlayers': all_players_out,
+        'donkeyPlayersInfo': donkey_players_info,
     }
 
 
@@ -770,6 +795,7 @@ def build_us_open_scores_response():
         US_OPEN_LOGO_URL,
         'U.S. Open at Shinnecock Hills logo',
         made_cut_count=60,
+        preset_donkey_players=US_OPEN_DONKEY_PLAYERS,
     )
 
 
