@@ -133,7 +133,7 @@ US_OPEN_BENCH_PLAYERS = {
     'Team Paul': ['JJ Spaun', 'Si Woo Kim'],
 }
 
-US_OPEN_DONKEY_PLAYERS = ['Gary Woodland', 'Marek Flemming', 'Erik Lee']
+US_OPEN_DONKEY_PLAYERS = ['Neal Shipley', 'Marek Flemming', 'Erik Lee']
 
 NAME_ALIASES = {
     'Cam Smith': 'Cameron Smith',
