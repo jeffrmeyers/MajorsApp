@@ -140,6 +140,8 @@ NAME_ALIASES = {
     'Ludvig Aberg': 'Ludvig \u00c5berg',
     'Nicolai Hojgaard': 'Nicolai Højgaard',
     'JJ Spaun': 'J.J. Spaun',
+    'Marek Flemming': 'Marek Fleming',
+    'Erik Lee': 'Eric Lee',
 }
 
 
@@ -370,21 +372,22 @@ def competitor_started_round(lines, period):
 
 
 def espn_cut_line_value(competitors, made_cut_count):
-    scores = []
+    two_round_scores = []
     for c in competitors:
-        score_display = c.get('score', 'E') or 'E'
-        if str(score_display).upper() == 'CUT':
-            continue
         lines = c.get('linescores') or []
-        if not competitor_has_completed_round(lines, 1):
+        r1 = parse_espn_round_value(
+            next((ls.get('displayValue') for ls in lines if ls.get('period') == 1), None)
+        )
+        r2 = parse_espn_round_value(
+            next((ls.get('displayValue') for ls in lines if ls.get('period') == 2), None)
+        )
+        if r1 is None or r2 is None:
             continue
-        if not competitor_has_completed_round(lines, 2):
-            continue
-        scores.append(parse_topar(score_display))
-    if len(scores) < made_cut_count:
+        two_round_scores.append(r1 + r2)
+    if len(two_round_scores) < made_cut_count:
         return None
-    scores.sort()
-    return scores[made_cut_count - 1]
+    two_round_scores.sort()
+    return two_round_scores[made_cut_count - 1]
 
 
 def espn_cut_is_known(state, current_round, competitors):
@@ -404,17 +407,22 @@ def espn_player_missed_cut(competitor, cut_line, cut_is_known):
     score_display = competitor.get('score', 'E') or 'E'
     if str(score_display).upper() == 'CUT':
         return True
-    if not cut_is_known:
+    if not cut_is_known or cut_line is None:
         return False
     lines = competitor.get('linescores') or []
     if competitor_started_round(lines, 3) or competitor_started_round(lines, 4):
         return False
-    # Cut is decided and player hasn't started R3/R4
-    if cut_line is not None:
-        return parse_topar(score_display) > cut_line
-    # Can't compute cut line from this feed (R1/R2 linescores missing in R3+),
-    # but cut is confirmed — any player not in R3/R4 missed it
-    return True
+    # Use the player's actual R1+R2 sum rather than their cumulative score
+    # (cumulative includes R3 for active players and would skew the comparison)
+    r1 = parse_espn_round_value(
+        next((ls.get('displayValue') for ls in lines if ls.get('period') == 1), None)
+    )
+    r2 = parse_espn_round_value(
+        next((ls.get('displayValue') for ls in lines if ls.get('period') == 2), None)
+    )
+    if r1 is None or r2 is None:
+        return False
+    return (r1 + r2) > cut_line
 
 
 def build_espn_tournament_info(competitors, current_round, logo_url, logo_alt, made_cut_count, cut_is_known):
