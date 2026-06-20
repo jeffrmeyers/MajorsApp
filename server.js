@@ -167,7 +167,11 @@ function scoreDisplay(score) {
 
 function buildRoundStatusesFromState(state, period) {
   const statuses = ['N', 'N', 'N', 'N'];
-  if (state === 'post') return ['F', 'F', 'F', 'F'];
+  if (state === 'post') {
+    const finished = Math.max(1, Math.min(4, parseInt(period, 10) || 1));
+    for (let i = 0; i < finished; i += 1) statuses[i] = 'F';
+    return statuses;
+  }
   if (state === 'in') {
     const idx = Math.max(0, Math.min((period || 1) - 1, 3));
     for (let i = 0; i < idx; i += 1) statuses[i] = 'F';
@@ -339,12 +343,61 @@ function projectedCutFromEspnCompetitors(competitors, madeCutCount) {
     : '-';
 }
 
-function buildEspnTournamentInfo(competitors, currentRound, logoUrl, logoAlt, madeCutCount) {
+function competitorHasCompletedRound(lines, period) {
+  const line = (lines || []).find((entry) => entry.period === period);
+  if (!line) return false;
+  return parseEspnRoundValue(line.displayValue) !== null;
+}
+
+function competitorStartedRound(lines, period) {
+  const line = (lines || []).find((entry) => entry.period === period);
+  if (!line) return false;
+  if (parseEspnRoundValue(line.displayValue) !== null) return true;
+  return (line.linescores || []).length > 0;
+}
+
+function espnCutLineValue(competitors, madeCutCount) {
+  const scores = competitors
+    .map((competitor) => {
+      const scoreDisplay = competitor.score || 'E';
+      if (String(scoreDisplay).toUpperCase() === 'CUT') return null;
+      const lines = competitor.linescores || [];
+      if (!competitorHasCompletedRound(lines, 1)) return null;
+      if (!competitorHasCompletedRound(lines, 2)) return null;
+      return parseTopar(scoreDisplay);
+    })
+    .filter((score) => score !== null)
+    .sort((a, b) => a - b);
+
+  return scores.length >= madeCutCount ? scores[madeCutCount - 1] : null;
+}
+
+function espnCutIsKnown(state, currentRound, competitors) {
+  if (currentRound > 2) return true;
+  if (currentRound === 2 && state === 'post') return true;
+  if (currentRound === 2 && state === 'in') {
+    return competitors.some((competitor) =>
+      competitorStartedRound(competitor.linescores || [], 3)
+    );
+  }
+  return false;
+}
+
+function espnPlayerMissedCut(competitor, cutLine, cutIsKnown) {
+  const scoreDisplay = competitor.score || 'E';
+  if (String(scoreDisplay).toUpperCase() === 'CUT') return true;
+  if (!cutIsKnown || cutLine === null || cutLine === undefined) return false;
+  const lines = competitor.linescores || [];
+  if (competitorStartedRound(lines, 3) || competitorStartedRound(lines, 4)) return false;
+  return parseTopar(scoreDisplay) > cutLine;
+}
+
+function buildEspnTournamentInfo(competitors, currentRound, logoUrl, logoAlt, madeCutCount, cutIsKnown) {
   return {
     logoUrl,
     logoAlt,
     cutLine: projectedCutFromEspnCompetitors(competitors, madeCutCount),
-    cutLineLabel: currentRound > 2 ? 'Actual cut' : 'Projected cut',
+    cutLineLabel: cutIsKnown ? 'Actual cut' : 'Projected cut',
     leader: leaderFromPlayers(
       competitors.map((competitor) => ({
         name: competitor.athlete?.fullName,
@@ -535,6 +588,8 @@ async function buildEspnScoresResponse(config) {
   const state = status.type?.state || event.status?.type?.state || 'pre';
   const currentRound = Math.max(1, Math.min(4, parseInt(status.period, 10) || 1));
   const roundStatuses = buildRoundStatusesFromState(state, currentRound);
+  const cutIsKnown = espnCutIsKnown(state, currentRound, competitors);
+  const cutLine = espnCutLineValue(competitors, madeCutCount);
   const playerMap = {};
   const allPlayers = [];
 
@@ -557,9 +612,8 @@ async function buildEspnScoresResponse(config) {
     const roundDetail = lines.find((line) => line.period === currentRound);
     const holesPlayed = (roundDetail?.linescores || []).length;
     const scoreDisplay = competitor.score || 'E';
-    const hasRound3 = lines.some((line) => line.period === 3);
-    const missedCut = currentRound > 2 && !hasRound3;
-    const playerStatus = String(scoreDisplay).toUpperCase() === 'CUT' || missedCut ? 'CUT' : '';
+    const missedCut = espnPlayerMissedCut(competitor, cutLine, cutIsKnown);
+    const playerStatus = missedCut ? 'CUT' : '';
 
     const parsedPlayer = {
       pos: String(idx + 1),
@@ -598,7 +652,7 @@ async function buildEspnScoresResponse(config) {
   return {
     tournament: tournamentKey,
     tournamentLabel,
-    tournamentInfo: buildEspnTournamentInfo(competitors, currentRound, logoUrl, logoAlt, madeCutCount),
+    tournamentInfo: buildEspnTournamentInfo(competitors, currentRound, logoUrl, logoAlt, madeCutCount, cutIsKnown),
     ...data,
     lastUpdated: scoreboard.day?.date || new Date().toISOString(),
     currentRound,

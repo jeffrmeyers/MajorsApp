@@ -238,7 +238,10 @@ def score_display(score):
 def build_round_statuses_from_state(state, period):
     statuses = ['N', 'N', 'N', 'N']
     if state == 'post':
-        return ['F', 'F', 'F', 'F']
+        finished = max(1, min(4, int(period or 1)))
+        for i in range(finished):
+            statuses[i] = 'F'
+        return statuses
     if state == 'in':
         idx = max(0, min((period or 1) - 1, 3))
         for i in range(idx):
@@ -369,8 +372,67 @@ def projected_cut_from_espn_competitors(competitors, made_cut_count):
     return score_display(two_round_scores[made_cut_count - 1])
 
 
-def build_espn_tournament_info(competitors, current_round, logo_url, logo_alt, made_cut_count):
-    cut_label = 'Actual cut' if current_round > 2 else 'Projected cut'
+def competitor_has_completed_round(lines, period):
+    line = next((ls for ls in lines if ls.get('period') == period), None)
+    if not line:
+        return False
+    return parse_espn_round_value(line.get('displayValue')) is not None
+
+
+def competitor_started_round(lines, period):
+    line = next((ls for ls in lines if ls.get('period') == period), None)
+    if not line:
+        return False
+    if parse_espn_round_value(line.get('displayValue')) is not None:
+        return True
+    return len((line.get('linescores') or [])) > 0
+
+
+def espn_cut_line_value(competitors, made_cut_count):
+    scores = []
+    for c in competitors:
+        score_display = c.get('score', 'E') or 'E'
+        if str(score_display).upper() == 'CUT':
+            continue
+        lines = c.get('linescores') or []
+        if not competitor_has_completed_round(lines, 1):
+            continue
+        if not competitor_has_completed_round(lines, 2):
+            continue
+        scores.append(parse_topar(score_display))
+    if len(scores) < made_cut_count:
+        return None
+    scores.sort()
+    return scores[made_cut_count - 1]
+
+
+def espn_cut_is_known(state, current_round, competitors):
+    if current_round > 2:
+        return True
+    if current_round == 2 and state == 'post':
+        return True
+    if current_round == 2 and state == 'in':
+        return any(
+            competitor_started_round(c.get('linescores') or [], 3)
+            for c in competitors
+        )
+    return False
+
+
+def espn_player_missed_cut(competitor, cut_line, cut_is_known):
+    score_display = competitor.get('score', 'E') or 'E'
+    if str(score_display).upper() == 'CUT':
+        return True
+    if not cut_is_known or cut_line is None:
+        return False
+    lines = competitor.get('linescores') or []
+    if competitor_started_round(lines, 3) or competitor_started_round(lines, 4):
+        return False
+    return parse_topar(score_display) > cut_line
+
+
+def build_espn_tournament_info(competitors, current_round, logo_url, logo_alt, made_cut_count, cut_is_known):
+    cut_label = 'Actual cut' if cut_is_known else 'Projected cut'
     return {
         'logoUrl': logo_url,
         'logoAlt': logo_alt,
@@ -602,6 +664,8 @@ def build_espn_scores_response(
     state = status_type.get('state', 'pre')
     current_round = max(1, min(4, int(status.get('period') or 1)))
     round_statuses = build_round_statuses_from_state(state, current_round)
+    cut_is_known = espn_cut_is_known(state, current_round, competitors)
+    cut_line = espn_cut_line_value(competitors, made_cut_count)
 
     player_map = {}
     for idx, c in enumerate(competitors):
@@ -623,9 +687,8 @@ def build_espn_scores_response(
         round_detail = next((ls for ls in lines if ls.get('period') == current_round), None)
         holes_played = len((round_detail or {}).get('linescores') or [])
         score_display = c.get('score', 'E') or 'E'
-        has_round_3 = any(ls.get('period') == 3 for ls in lines)
-        missed_cut = current_round > 2 and not has_round_3
-        player_status = 'CUT' if str(score_display).upper() == 'CUT' or missed_cut else ''
+        missed_cut = espn_player_missed_cut(c, cut_line, cut_is_known)
+        player_status = 'CUT' if missed_cut else ''
         player_map[full_name] = {
             'pos': str(idx + 1),
             'topar': parse_topar(score_display),
@@ -695,7 +758,7 @@ def build_espn_scores_response(
         'tournament': tournament_key,
         'tournamentLabel': tournament_label,
         'tournamentInfo': build_espn_tournament_info(
-            competitors, current_round, logo_url, logo_alt, made_cut_count
+            competitors, current_round, logo_url, logo_alt, made_cut_count, cut_is_known
         ),
         'teams': team_data,
         'lastUpdated': scoreboard.get('day', {}).get('date', ''),
