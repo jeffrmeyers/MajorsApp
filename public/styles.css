@@ -184,6 +184,16 @@ header h1 {
   border-color: var(--gold);
 }
 
+.tab-season {
+  border-color: rgba(255,255,255,0.5);
+}
+
+.tab-season.active {
+  background: var(--white);
+  color: var(--green-dark);
+  border-color: var(--white);
+}
+
 .round-badge {
   background: var(--gold);
   color: var(--green-masters);
@@ -372,6 +382,84 @@ main {
 .score-over { color: var(--over-par); }
 .score-even { color: var(--gray-600); }
 .score-dash { color: var(--gray-400); }
+
+/* SEASON STANDINGS TABLE */
+#season-table-wrap {
+  background: var(--white);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+#season-table {
+  width: 100%;
+  min-width: 560px;
+  border-collapse: collapse;
+}
+
+#season-table thead {
+  background: linear-gradient(135deg, var(--green-dark) 0%, var(--green-mid) 100%);
+  color: var(--white);
+}
+
+#season-table thead th {
+  padding: 13px 16px;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+#season-table tbody tr {
+  border-bottom: 1px solid var(--gray-200);
+  transition: background 0.15s;
+}
+
+#season-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+#season-table tbody tr.rank-1 {
+  background: linear-gradient(90deg, #fef9e7 0%, #fff 100%);
+}
+
+#season-table tbody td {
+  padding: 14px 16px;
+  font-size: 15px;
+  white-space: nowrap;
+}
+
+.col-season-event {
+  width: 90px;
+  min-width: 80px;
+  text-align: center !important;
+}
+
+.col-season-total {
+  width: 90px;
+  min-width: 80px;
+  text-align: center !important;
+}
+
+.col-season-back {
+  width: 72px;
+  min-width: 60px;
+  text-align: center !important;
+}
+
+.season-event-cell {
+  text-align: center;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.season-back-cell {
+  text-align: center;
+  font-size: 14px;
+  font-weight: 700;
+}
 
 /* LOADING */
 .loading-spinner {

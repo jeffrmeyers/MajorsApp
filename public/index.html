@@ -19,6 +19,7 @@
         <button id="tab-masters" class="tournament-tab" data-tournament="masters">Masters</button>
         <button id="tab-pga" class="tournament-tab" data-tournament="pga">PGA Championship</button>
         <button id="tab-usopen" class="tournament-tab active" data-tournament="usopen">U.S. Open</button>
+        <button id="tab-season" class="tournament-tab tab-season" data-tournament="season">Season</button>
       </div>
       <div id="status-bar">
         <span id="round-badge" class="round-badge">Round 1</span>
@@ -30,6 +31,22 @@
   </header>
 
   <main>
+    <section id="season-section" class="hidden">
+      <h2 class="section-title">🏆 Season Standings</h2>
+      <div id="season-table-wrap">
+        <div class="loading-spinner" id="season-loading">
+          <div class="spinner"></div>
+          <p>Loading season scores...</p>
+        </div>
+        <div class="table-scroll">
+          <table id="season-table" class="hidden">
+            <thead id="season-thead"></thead>
+            <tbody id="season-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
     <section id="donkey-section">
       <h2 class="section-title">🫏 Donkey Players</h2>
       <div class="donkey-card">

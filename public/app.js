@@ -18,6 +18,10 @@ const TOURNAMENTS = {
     label: 'U.S. OPEN · 2026',
     sourceHtml: 'Scores sourced from <a href="https://www.espn.com/golf/leaderboard?tournamentId=401811952" target="_blank">ESPN U.S. Open leaderboard feed</a> · Auto-refreshes every 60 seconds',
   },
+  season: {
+    label: '2026 SEASON STANDINGS',
+    sourceHtml: 'Season total across all four 2026 majors · Auto-refreshes every 60 seconds',
+  },
 };
 
 const ESPN_TOURNAMENTS = new Set(['pga', 'usopen']);
@@ -653,6 +657,59 @@ function restoreDonkeyFromStorage() {
   });
 }
 
+// ─── Season standings ─────────────────────────────────────────────────────────
+function renderSeasonStandings(data) {
+  const loading = document.getElementById('season-loading');
+  const table = document.getElementById('season-table');
+  const thead = document.getElementById('season-thead');
+  const tbody = document.getElementById('season-body');
+
+  const keys = data.tournamentKeys || ['masters', 'pga', 'usopen', 'theopen'];
+  const labels = data.tournamentLabels || { masters: 'Masters', pga: 'PGA', usopen: 'U.S. Open', theopen: 'The Open' };
+
+  thead.innerHTML = `
+    <tr>
+      <th class="col-rank">Rank</th>
+      <th class="col-team">Team</th>
+      ${keys.map((k) => `<th class="col-season-event">${labels[k]}</th>`).join('')}
+      <th class="col-season-total">Total</th>
+      <th class="col-season-back">Back</th>
+    </tr>`;
+
+  tbody.innerHTML = data.teams
+    .map((team) => {
+      const rankIcon =
+        team.rank === 1
+          ? `<span class="rank-1-icon">🏆</span>`
+          : `<span class="rank-num">${team.rank}</span>`;
+
+      const tournamentCells = keys
+        .map((k) => {
+          const val = team[k];
+          const display = team[`${k}Display`] || '-';
+          const cls = val === null || val === undefined ? 'score-dash' : val < 0 ? 'score-under' : val > 0 ? 'score-over' : 'score-even';
+          return `<td class="season-event-cell ${cls}">${display}</td>`;
+        })
+        .join('');
+
+      const totalCls = team.seasonTotal === null ? 'score-dash' : team.seasonTotal < 0 ? 'score-under' : team.seasonTotal > 0 ? 'score-over' : 'score-even';
+      const backCls = team.back === null || team.back === 0 ? 'score-dash' : 'score-over';
+
+      return `
+        <tr class="${team.rank === 1 ? 'rank-1' : ''}">
+          <td class="rank-cell">${rankIcon}</td>
+          <td class="team-name-cell">${team.name}</td>
+          ${tournamentCells}
+          <td class="total-cell ${totalCls}">${team.seasonTotalDisplay}</td>
+          <td class="season-back-cell ${backCls}">${team.backDisplay}</td>
+        </tr>`;
+    })
+    .join('');
+
+  loading.classList.add('hidden');
+  table.classList.remove('hidden');
+}
+
 // ─── Render cycle ─────────────────────────────────────────────────────────────
 function rerenderWithDonkey() {
   if (!rawData) return;
@@ -670,6 +727,31 @@ async function loadScores() {
   const table = document.getElementById('leaderboard-table');
   const lastUpdatedEl = document.getElementById('last-updated');
   const roundBadge = document.getElementById('round-badge');
+
+  if (activeTournament === 'season') {
+    document.getElementById('season-loading').classList.remove('hidden');
+    document.getElementById('season-table').classList.add('hidden');
+
+    try {
+      const res = await fetch('/api/scores?tournament=season');
+      if (!res.ok) throw new Error(`Server error ${res.status}`);
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+
+      const now = new Date();
+      lastUpdatedEl.textContent = `Updated ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+      roundBadge.textContent = 'All 4 Majors';
+      renderSeasonStandings(data);
+    } catch (err) {
+      console.error(err);
+      document.getElementById('season-loading').classList.add('hidden');
+      lastUpdatedEl.textContent = 'Failed to load scores';
+    }
+
+    if (autoRefreshTimer) clearTimeout(autoRefreshTimer);
+    autoRefreshTimer = setTimeout(loadScores, 60_000);
+    return;
+  }
 
   loading.classList.remove('hidden');
   table.classList.add('hidden');
@@ -749,9 +831,19 @@ function setActiveTournament(tournament) {
   document.getElementById('tournament-label').textContent = cfg.label;
   document.getElementById('footer-source').innerHTML = cfg.sourceHtml;
 
-  if (ESPN_TOURNAMENTS.has(tournament)) {
-    // For ESPN tournaments, hide the donkey section until data loads
-    // (it will be shown by loadScores if donkeyPlayersInfo is present)
+  const isSeason = tournament === 'season';
+
+  // Season section vs. normal sections
+  document.getElementById('season-section').classList.toggle('hidden', !isSeason);
+  document.getElementById('team-leaderboard').classList.toggle('hidden', isSeason);
+  document.getElementById('team-cards').classList.toggle('hidden', isSeason);
+  document.getElementById('bench-section').classList.toggle('hidden', true); // re-shown by render
+  document.getElementById('tournament-info-banner').classList.toggle('hidden', isSeason);
+
+  if (isSeason) {
+    document.getElementById('donkey-section').classList.add('hidden');
+    document.getElementById('round-badge').textContent = 'All 4 Majors';
+  } else if (ESPN_TOURNAMENTS.has(tournament)) {
     document.getElementById('donkey-section').classList.add('hidden');
     document.getElementById('donkey-preset-display').classList.add('hidden');
     document.getElementById('donkey-input-ui').classList.remove('hidden');

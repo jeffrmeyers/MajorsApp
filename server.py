@@ -822,12 +822,74 @@ def build_us_open_scores_response():
     )
 
 
+def build_season_scores_response():
+    TOURNAMENT_KEYS = ['masters', 'pga', 'usopen', 'theopen']
+    TOURNAMENT_LABELS = {
+        'masters': 'Masters',
+        'pga': 'PGA Champ.',
+        'usopen': 'U.S. Open',
+        'theopen': 'The Open',
+    }
+
+    builders = {
+        'masters': build_masters_scores_response,
+        'pga': build_pga_scores_response,
+        'usopen': build_us_open_scores_response,
+    }
+
+    tournament_results = {}
+    for key, builder in builders.items():
+        try:
+            result = builder()
+            tournament_results[key] = {team['name']: team['teamTopar'] for team in result.get('teams', [])}
+        except Exception:
+            tournament_results[key] = {}
+
+    team_names = list(MASTERS_TEAMS.keys())
+    season_data = []
+    for team_name in team_names:
+        scores = {key: tournament_results.get(key, {}).get(team_name) for key in TOURNAMENT_KEYS}
+        played = [s for s in scores.values() if s is not None]
+        season_total = sum(played) if played else None
+
+        season_data.append({
+            'name': team_name,
+            **{key: scores[key] for key in TOURNAMENT_KEYS},
+            **{f'{key}Display': score_display(scores[key]) if scores[key] is not None else '-' for key in TOURNAMENT_KEYS},
+            'seasonTotal': season_total,
+            'seasonTotalDisplay': score_display(season_total) if season_total is not None else '-',
+        })
+
+    season_data.sort(key=lambda t: (t['seasonTotal'] is None, t['seasonTotal'] or 0))
+
+    leader_total = season_data[0]['seasonTotal'] if season_data and season_data[0]['seasonTotal'] is not None else None
+    for i, team in enumerate(season_data):
+        team['rank'] = i + 1
+        if leader_total is not None and team['seasonTotal'] is not None:
+            back = team['seasonTotal'] - leader_total
+            team['back'] = back
+            team['backDisplay'] = '-' if back == 0 else f'+{back}'
+        else:
+            team['back'] = None
+            team['backDisplay'] = '-'
+
+    return {
+        'tournament': 'season',
+        'tournamentLabel': '2026 Season Standings',
+        'tournamentKeys': TOURNAMENT_KEYS,
+        'tournamentLabels': TOURNAMENT_LABELS,
+        'teams': season_data,
+    }
+
+
 def build_scores_response(tournament='masters'):
     tournament_key = (tournament or 'masters').lower()
     if tournament_key == 'pga':
         return build_pga_scores_response()
     if tournament_key == 'usopen':
         return build_us_open_scores_response()
+    if tournament_key == 'season':
+        return build_season_scores_response()
     return build_masters_scores_response()
 
 
