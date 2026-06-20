@@ -404,12 +404,17 @@ def espn_player_missed_cut(competitor, cut_line, cut_is_known):
     score_display = competitor.get('score', 'E') or 'E'
     if str(score_display).upper() == 'CUT':
         return True
-    if not cut_is_known or cut_line is None:
+    if not cut_is_known:
         return False
     lines = competitor.get('linescores') or []
     if competitor_started_round(lines, 3) or competitor_started_round(lines, 4):
         return False
-    return parse_topar(score_display) > cut_line
+    # Cut is decided and player hasn't started R3/R4
+    if cut_line is not None:
+        return parse_topar(score_display) > cut_line
+    # Can't compute cut line from this feed (R1/R2 linescores missing in R3+),
+    # but cut is confirmed — any player not in R3/R4 missed it
+    return True
 
 
 def build_espn_tournament_info(competitors, current_round, logo_url, logo_alt, made_cut_count, cut_is_known):
@@ -708,7 +713,12 @@ def build_espn_scores_response(
             api_name = NAME_ALIASES.get(player_name, player_name)
             p = player_map.get(api_name)
             if not p:
-                player_results.append(missing_player(player_name))
+                mp = missing_player(player_name)
+                # ESPN drops cut players from the R3+ feed entirely;
+                # treat absent players as cut so donkey substitution fires
+                if cut_is_known and current_round >= 3:
+                    mp['cut'] = True
+                player_results.append(mp)
             else:
                 player_results.append({'name': player_name, **p})
 
