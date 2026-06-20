@@ -2,6 +2,7 @@
 let autoRefreshTimer = null;
 let rawData = null;
 let donkeyPlayers = [null, null]; // [donkey1, donkey2]
+let presetDonkeyPlayersInfo = null;
 let activeTournament = 'usopen';
 
 const TOURNAMENTS = {
@@ -477,6 +478,69 @@ function renderDonkeyInfo() {
 }
 
 // ─── Donkey autocomplete ──────────────────────────────────────────────────────
+function renderPresetDonkeyDisplay(donkeyPlayersInfo) {
+  const el = document.getElementById('donkey-preset-display');
+  if (!el || !donkeyPlayersInfo) return;
+
+  const cards = donkeyPlayersInfo
+    .map((donkey) => {
+      const num = donkey.num;
+
+      const appliedCount = rawData
+        ? rawData.teams.reduce((total, team) => {
+            const cutPlayers = team.players.filter((p) => p.cut);
+            return total + (cutPlayers[num - 1] ? 1 : 0);
+          }, 0)
+        : 0;
+
+      const r3Fmt = formatScore(donkey.rounds[2]);
+      const r4Fmt = formatScore(donkey.rounds[3]);
+
+      const r3Display =
+        donkey.rounds[2] !== null && donkey.rounds[2] !== undefined
+          ? `<span class="donkey-round-val ${r3Fmt.cls}">${r3Fmt.display}</span>`
+          : `<span class="donkey-round-val score-dash">—</span>`;
+      const r4Display =
+        donkey.rounds[3] !== null && donkey.rounds[3] !== undefined
+          ? `<span class="donkey-round-val ${r4Fmt.cls}">${r4Fmt.display}</span>`
+          : `<span class="donkey-round-val score-dash">—</span>`;
+
+      const isCut = donkey.status === 'CUT';
+      const statusCls = isCut ? 'score-over' : 'score-even';
+      const statusLabel = isCut ? 'Missed cut' : donkey.status === 'WD' ? 'Withdrawn' : donkey.pos || '';
+
+      const warning = isCut
+        ? `<p class="donkey-warning">⚠️ This player also missed the cut — scores apply once available.</p>`
+        : '';
+
+      return `
+        <div class="donkey-info-card donkey-info-card-${num}">
+          <div class="donkey-info-card-header">
+            <span class="donkey-info-num">🫏${num}</span>
+            <span class="donkey-info-card-name">${donkey.name}</span>
+            <span class="donkey-player-pos ${statusCls}">${statusLabel}</span>
+          </div>
+          <div class="donkey-scores">
+            <div class="donkey-score-item">
+              <span class="donkey-score-label">R3</span>${r3Display}
+            </div>
+            <div class="donkey-score-item">
+              <span class="donkey-score-label">R4</span>${r4Display}
+            </div>
+            <div class="donkey-score-item">
+              <span class="donkey-score-label">Applied to</span>
+              <span class="donkey-round-val">${appliedCount} player${appliedCount !== 1 ? 's' : ''}</span>
+            </div>
+          </div>
+          ${warning}
+        </div>`;
+    })
+    .join('');
+
+  el.innerHTML = `<div class="donkey-info-cards">${cards}</div>`;
+  el.classList.remove('hidden');
+}
+
 function initDonkeyInput() {
   [0, 1].forEach((idx) => {
     const input = document.getElementById(`donkey-input-${idx}`);
@@ -597,6 +661,7 @@ function rerenderWithDonkey() {
   renderTeamCards(effectiveTeams, rawData.roundStatuses);
   renderBenchedPlayers(effectiveTeams, rawData.roundStatuses);
   renderDonkeyInfo();
+  if (presetDonkeyPlayersInfo) renderPresetDonkeyDisplay(presetDonkeyPlayersInfo);
 }
 
 // ─── Data loading ─────────────────────────────────────────────────────────────
@@ -624,6 +689,13 @@ async function loadScores() {
     }
     const now = new Date();
     lastUpdatedEl.textContent = `Updated ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+
+    presetDonkeyPlayersInfo = data.donkeyPlayersInfo || null;
+    if (presetDonkeyPlayersInfo) {
+      document.getElementById('donkey-section').classList.remove('hidden');
+      document.getElementById('donkey-input-ui').classList.add('hidden');
+      renderPresetDonkeyDisplay(presetDonkeyPlayersInfo);
+    }
 
     restoreDonkeyFromStorage();
     rerenderWithDonkey();
@@ -676,7 +748,19 @@ function setActiveTournament(tournament) {
   const cfg = TOURNAMENTS[tournament];
   document.getElementById('tournament-label').textContent = cfg.label;
   document.getElementById('footer-source').innerHTML = cfg.sourceHtml;
-  document.getElementById('donkey-section').classList.toggle('hidden', ESPN_TOURNAMENTS.has(tournament));
+
+  if (ESPN_TOURNAMENTS.has(tournament)) {
+    // For ESPN tournaments, hide the donkey section until data loads
+    // (it will be shown by loadScores if donkeyPlayersInfo is present)
+    document.getElementById('donkey-section').classList.add('hidden');
+    document.getElementById('donkey-preset-display').classList.add('hidden');
+    document.getElementById('donkey-input-ui').classList.remove('hidden');
+  } else {
+    document.getElementById('donkey-section').classList.remove('hidden');
+    document.getElementById('donkey-preset-display').classList.add('hidden');
+    document.getElementById('donkey-input-ui').classList.remove('hidden');
+  }
+  presetDonkeyPlayersInfo = null;
 
   const wrap = document.getElementById('leaderboard-table-wrap');
   const existing = wrap.querySelector('.error-box');

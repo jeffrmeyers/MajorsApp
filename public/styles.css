@@ -992,8 +992,14 @@ main {
 
 .donkey-info-cards {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, 1fr);
   gap: 12px;
+}
+
+@media (max-width: 800px) {
+  .donkey-info-cards {
+    grid-template-columns: 1fr 1fr;
+  }
 }
 
 @media (max-width: 600px) {
@@ -1016,6 +1022,11 @@ main {
 .donkey-info-card-2 {
   background: #eff6ff;
   border-color: #bfdbfe;
+}
+
+.donkey-info-card-3 {
+  background: #f5f3ff;
+  border-color: #ddd6fe;
 }
 
 .donkey-info-card-header {
@@ -1079,7 +1090,7 @@ main {
   margin-top: 8px;
 }
 
-/* Round pills — donkey 1 = amber, donkey 2 = blue */
+/* Round pills — donkey 1 = amber, donkey 2 = blue, donkey 3 = purple */
 .round-pill.donkey.donkey-1 {
   background: #fef3c7;
   color: #92400e;
@@ -1088,6 +1099,11 @@ main {
 .round-pill.donkey.donkey-2 {
   background: #dbeafe;
   color: #1e40af;
+}
+
+.round-pill.donkey.donkey-3 {
+  background: #ede9fe;
+  color: #5b21b6;
 }
 
 /* Substituted row highlights */
@@ -1108,6 +1124,10 @@ main {
   background: linear-gradient(90deg, #fee2e2 0%, #eff6ff 100%) !important;
 }
 
+.player-score-row.cut-row.donkey-row-3 {
+  background: linear-gradient(90deg, #fee2e2 0%, #f5f3ff 100%) !important;
+}
+
 .donkey-row-2 {
   background: #eff6ff !important;
   border-color: #bfdbfe;
@@ -1115,6 +1135,15 @@ main {
 
 .donkey-row-2:hover {
   background: #dbeafe !important;
+}
+
+.donkey-row-3 {
+  background: #f5f3ff !important;
+  border-color: #ddd6fe;
+}
+
+.donkey-row-3:hover {
+  background: #ede9fe !important;
 }
 
 /* Substitution badges */
@@ -1126,6 +1155,11 @@ main {
 .status-donkey.donkey-2 {
   background: #dbeafe;
   color: #1e40af;
+}
+
+.status-donkey.donkey-3 {
+  background: #ede9fe;
+  color: #5b21b6;
 }
 
 /* FOOTER */
