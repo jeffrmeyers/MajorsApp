@@ -346,6 +346,16 @@ main {
   font-size: 15px;
 }
 
+.team-cut-note {
+  display: block;
+  margin-top: 3px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: #b91c1c;
+}
+
 .round-cell {
   text-align: center;
   font-size: 14px;
@@ -497,6 +507,21 @@ main {
   text-transform: uppercase;
 }
 
+.team-cut-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: #991b1b;
+  background: rgba(254, 226, 226, 0.95);
+  border: 1px solid #fecaca;
+  border-radius: 999px;
+  padding: 3px 8px;
+  line-height: 1;
+}
+
 .bench-card-name {
   font-size: 16px;
   font-weight: 800;
@@ -645,6 +670,29 @@ main {
   background: var(--gray-50);
 }
 
+.player-score-row.cut-row {
+  background: var(--red-light);
+  border-color: #fecaca;
+  border-left: 4px solid var(--red);
+}
+
+.player-score-row.cut-row:nth-child(even) {
+  background: #ffe4e6;
+}
+
+.player-score-row.cut-row .player-name {
+  color: #7f1d1d;
+}
+
+.player-score-row.cut-row .player-score-metric.total {
+  background: #fee2e2;
+}
+
+.player-score-row.cut-row.donkey-row-1,
+.player-score-row.cut-row.donkey-row-2 {
+  border-left-color: var(--red);
+}
+
 .player-score-main {
   min-width: 0;
 }
@@ -659,6 +707,14 @@ main {
   font-size: 12px;
   color: var(--gray-400);
   margin-top: 1px;
+}
+
+.player-pos.cut-pos {
+  color: var(--red);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
 }
 
 .player-score-metrics {
@@ -749,6 +805,13 @@ main {
   animation: pulse 1.5s infinite;
 }
 
+.round-pill.cut-round {
+  background: #fee2e2;
+  color: #b91c1c;
+  border: 1px dashed #fca5a5;
+  font-weight: 800;
+}
+
 @keyframes pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.6; }
@@ -763,11 +826,17 @@ main {
   text-transform: uppercase;
   letter-spacing: 0.5px;
   margin-left: 4px;
+  vertical-align: middle;
 }
 
 .status-cut {
-  background: #fef3c7;
-  color: #92400e;
+  background: var(--red);
+  color: var(--white);
+  font-size: 9px;
+  font-weight: 800;
+  padding: 3px 7px;
+  border-radius: 999px;
+  box-shadow: 0 1px 2px rgba(127, 29, 29, 0.18);
 }
 
 .status-wd {
@@ -1029,6 +1098,14 @@ main {
 
 .donkey-row-1:hover {
   background: #fef3c7 !important;
+}
+
+.player-score-row.cut-row.donkey-row-1 {
+  background: linear-gradient(90deg, #fee2e2 0%, #fffbeb 100%) !important;
+}
+
+.player-score-row.cut-row.donkey-row-2 {
+  background: linear-gradient(90deg, #fee2e2 0%, #eff6ff 100%) !important;
 }
 
 .donkey-row-2 {

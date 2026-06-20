@@ -34,7 +34,10 @@ function formatScore(score) {
   return { display: `+${score}`, cls: 'score-over' };
 }
 
-function roundPillHTML(score, isActive, donkeyIdx) {
+function roundPillHTML(score, isActive, donkeyIdx, options = {}) {
+  if (options.isMissedRound) {
+    return `<span class="round-pill cut-round" title="Missed cut — no score">—</span>`;
+  }
   if (score === null || score === undefined) return `<span class="round-pill">-</span>`;
   const label = score === 0 ? 'E' : score > 0 ? `+${score}` : score;
   if (donkeyIdx !== null && donkeyIdx !== undefined) {
@@ -193,11 +196,16 @@ function renderLeaderboard(teams, roundStatuses) {
         rank === 1
           ? `<span class="rank-1-icon">🏆</span>`
           : `<span class="rank-num">${rank}</span>`;
+      const cutCount = players.filter((p) => p.cut).length;
+      const cutNote =
+        cutCount > 0
+          ? `<span class="team-cut-note">${cutCount} missed cut</span>`
+          : '';
 
       return `
         <tr class="${rank === 1 ? 'rank-1' : ''}" onclick="scrollToTeam('${name}')">
           <td class="rank-cell">${rankIcon}</td>
-          <td class="team-name-cell">${name}</td>
+          <td class="team-name-cell">${name}${cutNote}</td>
           ${roundCells}
           <td class="total-cell ${totalFmt.cls}">${teamToparDisplay}</td>
         </tr>`;
@@ -208,7 +216,7 @@ function renderLeaderboard(teams, roundStatuses) {
 function playerScoreRowHTML(p, activeRound, options = {}) {
   const toparFmt = p.notFound ? { display: 'N/A', cls: 'score-dash' } : formatScore(p.topar);
   const statusBadge = p.cut
-    ? `<span class="status-badge status-cut">CUT</span>`
+    ? `<span class="status-badge status-cut">Missed Cut</span>`
     : p.wd
     ? `<span class="status-badge status-wd">WD</span>`
     : '';
@@ -216,25 +224,35 @@ function playerScoreRowHTML(p, activeRound, options = {}) {
     ? `<span class="status-badge status-donkey donkey-${p.donkeyNum}">🫏${p.donkeyNum}</span>`
     : '';
   const rounds = p.rounds
-    .map((r, ri) =>
-      roundPillHTML(
-        r,
-        ri === activeRound,
-        options.showDonkey && p.donkeyRoundIdx ? p.donkeyRoundIdx[ri] : null
-      )
-    )
+    .map((r, ri) => {
+      const donkeyIdx = options.showDonkey && p.donkeyRoundIdx ? p.donkeyRoundIdx[ri] : null;
+      const isMissedRound =
+        p.cut &&
+        ri >= 2 &&
+        (r === null || r === undefined) &&
+        (donkeyIdx === null || donkeyIdx === undefined);
+      return roundPillHTML(r, ri === activeRound, donkeyIdx, { isMissedRound });
+    })
     .join('');
   const thruDisplay = p.thru === 'F' ? 'F' : p.thru === '-' ? '-' : `${p.thru}`;
   const todayFmt = p.notFound
     ? { display: '-', cls: 'score-dash' }
     : formatScore(p.today === 'E' ? 0 : parseInt(p.today) || 0);
-  const rowClass = p.donkeySubstituted ? `donkey-row donkey-row-${p.donkeyNum}` : '';
+  const rowClass = [
+    p.cut ? 'cut-row' : '',
+    p.donkeySubstituted ? `donkey-row donkey-row-${p.donkeyNum}` : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+  const posDisplay = p.cut
+    ? `<span class="player-pos cut-pos">Missed Cut</span>`
+    : `<div class="player-pos">${p.pos !== 'N/A' ? p.pos : ''}</div>`;
 
   return `
-    <div class="player-score-row ${rowClass}">
+    <div class="player-score-row ${rowClass}" ${p.cut ? 'aria-label="Missed cut"' : ''}>
       <div class="player-score-main">
         <div class="player-name">${p.name}${statusBadge}${donkeyBadge}</div>
-        <div class="player-pos">${p.pos !== 'N/A' ? p.pos : ''}</div>
+        ${posDisplay}
       </div>
       <div class="player-score-metrics">
         <div class="player-score-metric">
@@ -300,6 +318,11 @@ function renderTeamCards(teams, roundStatuses) {
       const { rank, name, players, teamTopar, teamToparDisplay } = team;
       const totalFmt = formatScore(teamTopar);
       const headerClass = rank === 1 ? 'rank-1' : '';
+      const cutCount = players.filter((p) => p.cut).length;
+      const cutBadge =
+        cutCount > 0
+          ? `<span class="team-cut-badge">${cutCount} missed cut</span>`
+          : '';
 
       const playerRows = players
         .map((p) => playerScoreRowHTML(p, activeRound, { showDonkey: true }))
@@ -315,6 +338,7 @@ function renderTeamCards(teams, roundStatuses) {
           <button class="team-card-header ${headerClass}" type="button" aria-expanded="${isExpanded}" aria-controls="players-${name.replace(/\s+/g, '-')}" onclick="toggleTeamCard('${name.replace(/\s+/g, '-')}')">
             <div class="team-card-title">
               <div class="team-card-name">${name}</div>
+              ${cutBadge}
               <span class="team-card-toggle-label">${toggleLabel}</span>
             </div>
             <div class="team-card-meta">
