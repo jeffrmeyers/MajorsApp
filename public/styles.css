@@ -893,6 +893,16 @@ main {
   animation: pulse 1.5s infinite;
 }
 
+.round-pill.active.under {
+  background: var(--under-par-bg);
+  color: var(--under-par);
+}
+
+.round-pill.active.over {
+  background: var(--over-par-bg);
+  color: var(--over-par);
+}
+
 .round-pill.cut-round {
   background: #fee2e2;
   color: #b91c1c;

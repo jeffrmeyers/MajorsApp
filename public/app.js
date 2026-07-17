@@ -53,8 +53,8 @@ function roundPillHTML(score, isActive, donkeyIdx, options = {}) {
     const num = donkeyIdx + 1;
     return `<span class="round-pill donkey donkey-${num}" title="Donkey ${num} substitution">🫏${num} ${label}</span>`;
   }
-  if (isActive) return `<span class="round-pill active">${label}</span>`;
   const cls = score < 0 ? 'under' : score > 0 ? 'over' : '';
+  if (isActive) return `<span class="round-pill active ${cls}">${label}</span>`;
   return `<span class="round-pill ${cls}">${label}</span>`;
 }
 
