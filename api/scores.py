@@ -9,9 +9,12 @@ PGA_EVENT_API = 'https://sports.core.api.espn.com/v2/sports/golf/leagues/pga/eve
 PGA_EVENT_ID = '401811947'
 US_OPEN_EVENT_API = 'https://sports.core.api.espn.com/v2/sports/golf/leagues/pga/events/401811952/competitions/401811952?lang=en&region=us'
 US_OPEN_EVENT_ID = '401811952'
+THE_OPEN_EVENT_API = 'https://sports.core.api.espn.com/v2/sports/golf/leagues/pga/events/401811957/competitions/401811957?lang=en&region=us'
+THE_OPEN_EVENT_ID = '401811957'
 MASTERS_LOGO_URL = 'https://upload.wikimedia.org/wikipedia/commons/c/c5/Masters_Tournament.svg'
 PGA_LOGO_URL = 'https://wp.logos-download.com/wp-content/uploads/2023/02/USPGA_2022_PGA_Championship_Logo.svg'
 US_OPEN_LOGO_URL = 'https://filecache.mediaroom.com/mr5mr_usga2/191226/2026-USO_SHINNECOCK_FULL-COLOR%20%281%29.jpg'
+THE_OPEN_LOGO_URL = 'https://upload.wikimedia.org/wikipedia/en/6/6c/The_Open_Championship_logo.svg'
 
 MASTERS_TEAMS = {
     'Team Jeff': [
@@ -134,6 +137,19 @@ US_OPEN_BENCH_PLAYERS = {
 }
 
 US_OPEN_DONKEY_PLAYERS = ['Neal Shipley', 'Marek Flemming', 'Erik Lee']
+
+THE_OPEN_TEAMS = {
+    **US_OPEN_TEAMS,
+    'Team Mark': [
+        'Jon Rahm',
+        'Bryson DeChambeau',
+        'Hideki Matsuyama',
+        'Corey Conners',
+        'Cam Smith',
+    ],
+}
+
+THE_OPEN_BENCH_PLAYERS = {}
 
 NAME_ALIASES = {
     'Cam Smith': 'Cameron Smith',
@@ -817,6 +833,20 @@ def build_us_open_scores_response():
     )
 
 
+def build_the_open_scores_response():
+    return build_espn_scores_response(
+        THE_OPEN_EVENT_ID,
+        THE_OPEN_EVENT_API,
+        THE_OPEN_TEAMS,
+        THE_OPEN_BENCH_PLAYERS,
+        'theopen',
+        'The Open Championship',
+        THE_OPEN_LOGO_URL,
+        'The Open Championship logo',
+        made_cut_count=70,
+    )
+
+
 def build_season_scores_response():
     TOURNAMENT_KEYS = ['masters', 'pga', 'usopen', 'theopen']
     TOURNAMENT_LABELS = {
@@ -830,6 +860,7 @@ def build_season_scores_response():
         'masters': build_masters_scores_response,
         'pga': build_pga_scores_response,
         'usopen': build_us_open_scores_response,
+        'theopen': build_the_open_scores_response,
     }
 
     tournament_results = {}
@@ -877,12 +908,14 @@ def build_season_scores_response():
     }
 
 
-def build_scores_response(tournament='masters'):
-    tournament_key = (tournament or 'masters').lower()
+def build_scores_response(tournament='theopen'):
+    tournament_key = (tournament or 'theopen').lower()
     if tournament_key == 'pga':
         return build_pga_scores_response()
     if tournament_key == 'usopen':
         return build_us_open_scores_response()
+    if tournament_key == 'theopen':
+        return build_the_open_scores_response()
     if tournament_key == 'season':
         return build_season_scores_response()
     return build_masters_scores_response()
@@ -893,7 +926,7 @@ class handler(BaseHTTPRequestHandler):
         try:
             parsed = urlparse(self.path)
             query = parse_qs(parsed.query)
-            tournament = query.get('tournament', ['masters'])[0]
+            tournament = query.get('tournament', ['theopen'])[0]
             result = build_scores_response(tournament)
             body = json.dumps(result).encode('utf-8')
             self.send_response(200)
