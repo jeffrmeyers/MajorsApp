@@ -14,7 +14,7 @@ THE_OPEN_EVENT_ID = '401811957'
 MASTERS_LOGO_URL = 'https://upload.wikimedia.org/wikipedia/commons/c/c5/Masters_Tournament.svg'
 PGA_LOGO_URL = 'https://wp.logos-download.com/wp-content/uploads/2023/02/USPGA_2022_PGA_Championship_Logo.svg'
 US_OPEN_LOGO_URL = 'https://filecache.mediaroom.com/mr5mr_usga2/191226/2026-USO_SHINNECOCK_FULL-COLOR%20%281%29.jpg'
-THE_OPEN_LOGO_URL = 'https://upload.wikimedia.org/wikipedia/en/6/6c/The_Open_Championship_logo.svg'
+THE_OPEN_LOGO_URL = 'https://www.theopen.com/-/media/images/logo-the-open-symbol.png'
 
 MASTERS_TEAMS = {
     'Team Jeff': [
