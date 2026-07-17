@@ -366,6 +366,85 @@ main {
   color: #b91c1c;
 }
 
+/* ─── Individual leaderboard ─────────────────────────────────────────────── */
+#individual-leaderboard-wrap {
+  background: var(--white);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+#individual-leaderboard-table {
+  width: 100%;
+  min-width: 320px;
+  border-collapse: collapse;
+}
+
+#individual-leaderboard-table thead {
+  background: var(--green-dark);
+  color: var(--white);
+}
+
+#individual-leaderboard-table thead th {
+  padding: 13px 16px;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+}
+
+#individual-leaderboard-table tbody tr {
+  border-bottom: 1px solid var(--gray-200);
+  transition: background 0.15s;
+}
+
+#individual-leaderboard-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+#individual-leaderboard-table tbody tr:hover {
+  background: var(--gray-50);
+}
+
+#individual-leaderboard-table tbody tr:first-child {
+  background: linear-gradient(90deg, #fef9e7 0%, #fff 100%);
+}
+
+#individual-leaderboard-table tbody tr:first-child:hover {
+  background: linear-gradient(90deg, #fef3c7 0%, var(--gray-50) 100%);
+}
+
+#individual-leaderboard-table tbody td {
+  padding: 12px 16px;
+  font-size: 15px;
+  white-space: nowrap;
+}
+
+.col-player { min-width: 160px; }
+
+.player-lb-name-cell {
+  font-weight: 600;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.player-team-badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fcd34d;
+  border-radius: 4px;
+  padding: 1px 6px;
+  white-space: nowrap;
+}
+
 .round-cell {
   text-align: center;
   font-size: 14px;

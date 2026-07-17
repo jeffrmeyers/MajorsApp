@@ -714,10 +714,84 @@ function renderSeasonStandings(data) {
   table.classList.remove('hidden');
 }
 
+// ─── Individual leaderboard ───────────────────────────────────────────────────
+function renderIndividualLeaderboard(data) {
+  const section = document.getElementById('individual-leaderboard');
+  if (!data || !data.allPlayers || data.allPlayers.length === 0) {
+    section.classList.add('hidden');
+    return;
+  }
+
+  // Map player name → team name and detail from teams data
+  const playerTeamMap = {};
+  const playerDetailMap = {};
+  (data.teams || []).forEach((team) => {
+    (team.players || []).forEach((p) => {
+      playerTeamMap[p.name] = team.name;
+      playerDetailMap[p.name] = p;
+    });
+  });
+
+  const activeRoundIdx = (data.roundStatuses || []).findIndex((s) => s === 'A');
+
+  // Sort active players by topar, take top 10
+  const top10 = [...data.allPlayers]
+    .filter((p) => p.status !== 'CUT' && p.status !== 'WD')
+    .sort((a, b) => a.topar - b.topar)
+    .slice(0, 10);
+
+  if (top10.length === 0) {
+    section.classList.add('hidden');
+    return;
+  }
+
+  // Compute tied ranks
+  const toparCounts = {};
+  top10.forEach((p) => { toparCounts[p.topar] = (toparCounts[p.topar] || 0) + 1; });
+  let rankNum = 1;
+  top10.forEach((p, i) => {
+    if (i > 0 && p.topar !== top10[i - 1].topar) rankNum = i + 1;
+    p.displayRank = toparCounts[p.topar] > 1 ? `T${rankNum}` : String(rankNum);
+  });
+
+  const tbody = document.getElementById('individual-leaderboard-body');
+  tbody.innerHTML = top10
+    .map((p) => {
+      const totalFmt = formatScore(p.topar);
+      const teamName = playerTeamMap[p.name];
+      const teamBadge = teamName
+        ? `<span class="player-team-badge">${teamName.replace('Team ', '')}</span>`
+        : '';
+      const rankIcon =
+        p.displayRank === '1'
+          ? `<span class="rank-1-icon">🏆</span>`
+          : `<span class="rank-num">${p.displayRank}</span>`;
+
+      // Compute today's score from rounds array
+      const todayScore = activeRoundIdx >= 0 ? p.rounds[activeRoundIdx] : null;
+      const todayFmt =
+        todayScore !== null && todayScore !== undefined
+          ? formatScore(todayScore)
+          : { display: '-', cls: 'score-dash' };
+
+      return `
+        <tr>
+          <td class="rank-cell">${rankIcon}</td>
+          <td class="player-lb-name-cell">${p.name}${teamBadge}</td>
+          <td class="round-cell ${todayFmt.cls}">${todayFmt.display}</td>
+          <td class="total-cell ${totalFmt.cls}">${totalFmt.display}</td>
+        </tr>`;
+    })
+    .join('');
+
+  section.classList.remove('hidden');
+}
+
 // ─── Render cycle ─────────────────────────────────────────────────────────────
 function rerenderWithDonkey() {
   if (!rawData) return;
   const effectiveTeams = applyDonkeySubstitution(rawData.teams, donkeyPlayers);
+  renderIndividualLeaderboard(rawData);
   renderLeaderboard(effectiveTeams, rawData.roundStatuses);
   renderTeamCards(effectiveTeams, rawData.roundStatuses);
   renderBenchedPlayers(effectiveTeams, rawData.roundStatuses);
@@ -839,6 +913,7 @@ function setActiveTournament(tournament) {
 
   // Season section vs. normal sections
   document.getElementById('season-section').classList.toggle('hidden', !isSeason);
+  document.getElementById('individual-leaderboard').classList.toggle('hidden', isSeason);
   document.getElementById('team-leaderboard').classList.toggle('hidden', isSeason);
   document.getElementById('team-cards').classList.toggle('hidden', isSeason);
   document.getElementById('bench-section').classList.toggle('hidden', true); // re-shown by render
