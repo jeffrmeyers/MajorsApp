@@ -3,7 +3,7 @@ let autoRefreshTimer = null;
 let rawData = null;
 let donkeyPlayers = [null, null]; // [donkey1, donkey2]
 let presetDonkeyPlayersInfo = null;
-let activeTournament = 'usopen';
+let activeTournament = 'theopen';
 
 const TOURNAMENTS = {
   masters: {
@@ -18,13 +18,17 @@ const TOURNAMENTS = {
     label: 'U.S. OPEN · 2026',
     sourceHtml: 'Scores sourced from <a href="https://www.espn.com/golf/leaderboard?tournamentId=401811952" target="_blank">ESPN U.S. Open leaderboard feed</a> · Auto-refreshes every 60 seconds',
   },
+  theopen: {
+    label: 'THE OPEN · 2026',
+    sourceHtml: 'Scores sourced from <a href="https://www.espn.com/golf/leaderboard?tournamentId=401811957" target="_blank">ESPN The Open leaderboard feed</a> · Auto-refreshes every 60 seconds',
+  },
   season: {
     label: '2026 SEASON STANDINGS',
     sourceHtml: 'Season total across all four 2026 majors · Auto-refreshes every 60 seconds',
   },
 };
 
-const ESPN_TOURNAMENTS = new Set(['pga', 'usopen']);
+const ESPN_TOURNAMENTS = new Set(['pga', 'usopen', 'theopen']);
 
 function donkeyKeysFor(tournament) {
   const prefix = `${tournament}:`;

@@ -11,9 +11,12 @@ const PGA_EVENT_API = 'https://sports.core.api.espn.com/v2/sports/golf/leagues/p
 const PGA_EVENT_ID = '401811947';
 const US_OPEN_EVENT_API = 'https://sports.core.api.espn.com/v2/sports/golf/leagues/pga/events/401811952/competitions/401811952?lang=en&region=us';
 const US_OPEN_EVENT_ID = '401811952';
+const THE_OPEN_EVENT_API = 'https://sports.core.api.espn.com/v2/sports/golf/leagues/pga/events/401811957/competitions/401811957?lang=en&region=us';
+const THE_OPEN_EVENT_ID = '401811957';
 const MASTERS_LOGO_URL = 'https://upload.wikimedia.org/wikipedia/commons/c/c5/Masters_Tournament.svg';
 const PGA_LOGO_URL = 'https://wp.logos-download.com/wp-content/uploads/2023/02/USPGA_2022_PGA_Championship_Logo.svg';
 const US_OPEN_LOGO_URL = 'https://filecache.mediaroom.com/mr5mr_usga2/191226/2026-USO_SHINNECOCK_FULL-COLOR%20%281%29.jpg';
+const THE_OPEN_LOGO_URL = 'https://upload.wikimedia.org/wikipedia/en/6/6c/The_Open_Championship_logo.svg';
 
 const MASTERS_TEAMS = {
   'Team Jeff': [
@@ -134,6 +137,19 @@ const US_OPEN_BENCH_PLAYERS = {
   'Team Mark': ['Cam Smith', 'Gary Woodland'],
   'Team Paul': ['JJ Spaun', 'Si Woo Kim'],
 };
+
+const THE_OPEN_TEAMS = {
+  ...US_OPEN_TEAMS,
+  'Team Mark': [
+    'Jon Rahm',
+    'Bryson DeChambeau',
+    'Hideki Matsuyama',
+    'Corey Conners',
+    'Cam Smith',
+  ],
+};
+
+const THE_OPEN_BENCH_PLAYERS = {};
 
 // Name aliases to match Masters.com data
 const NAME_ALIASES = {
@@ -687,14 +703,112 @@ async function buildUsOpenScoresResponse() {
   });
 }
 
+async function buildTheOpenScoresResponse() {
+  return buildEspnScoresResponse({
+    eventId: THE_OPEN_EVENT_ID,
+    eventApi: THE_OPEN_EVENT_API,
+    teams: THE_OPEN_TEAMS,
+    benchPlayers: THE_OPEN_BENCH_PLAYERS,
+    tournamentKey: 'theopen',
+    tournamentLabel: 'The Open Championship',
+    logoUrl: THE_OPEN_LOGO_URL,
+    logoAlt: 'The Open Championship logo',
+    madeCutCount: 70,
+  });
+}
+
+const SEASON_TOURNAMENT_KEYS = ['masters', 'pga', 'usopen', 'theopen'];
+const SEASON_TOURNAMENT_LABELS = {
+  masters: 'Masters',
+  pga: 'PGA Championship',
+  usopen: 'U.S. Open',
+  theopen: 'The Open',
+};
+
+async function buildSeasonStandingsResponse() {
+  const [mastersResult, pgaResult, usOpenResult, theOpenResult] = await Promise.allSettled([
+    buildMastersScoresResponse(),
+    buildPgaScoresResponse(),
+    buildUsOpenScoresResponse(),
+    buildTheOpenScoresResponse(),
+  ]);
+
+  const results = [mastersResult, pgaResult, usOpenResult, theOpenResult];
+  const allTeamNames = Object.keys(MASTERS_TEAMS);
+
+  const teams = allTeamNames.map((teamName) => {
+    let seasonTotal = null;
+    const teamData = {};
+
+    SEASON_TOURNAMENT_KEYS.forEach((key, idx) => {
+      const result = results[idx];
+      const started = result.status === 'fulfilled' && !result.value.message;
+      if (started) {
+        const team = (result.value.teams || []).find((t) => t.name === teamName);
+        if (team) {
+          teamData[key] = team.teamTopar;
+          teamData[`${key}Display`] = team.teamToparDisplay;
+          seasonTotal = (seasonTotal === null ? 0 : seasonTotal) + team.teamTopar;
+        } else {
+          teamData[key] = null;
+          teamData[`${key}Display`] = '-';
+        }
+      } else {
+        teamData[key] = null;
+        teamData[`${key}Display`] = '-';
+      }
+    });
+
+    return {
+      name: teamName,
+      ...teamData,
+      seasonTotal,
+      seasonTotalDisplay: seasonTotal === null ? '-' : formatTeamTotal(seasonTotal),
+    };
+  });
+
+  teams.sort((a, b) => {
+    if (a.seasonTotal === null && b.seasonTotal === null) return 0;
+    if (a.seasonTotal === null) return 1;
+    if (b.seasonTotal === null) return -1;
+    return a.seasonTotal - b.seasonTotal;
+  });
+
+  const leader = teams[0];
+  teams.forEach((team, idx) => {
+    team.rank = idx + 1;
+    if (team.seasonTotal === null || leader.seasonTotal === null) {
+      team.back = null;
+      team.backDisplay = '-';
+    } else {
+      team.back = team.seasonTotal - leader.seasonTotal;
+      team.backDisplay = team.back === 0 ? '-' : `+${team.back}`;
+    }
+  });
+
+  return {
+    tournamentKeys: SEASON_TOURNAMENT_KEYS,
+    tournamentLabels: SEASON_TOURNAMENT_LABELS,
+    teams,
+    lastUpdated: new Date().toISOString(),
+  };
+}
+
 app.get('/api/scores', async (req, res) => {
   try {
-    const tournament = String(req.query.tournament || 'masters').toLowerCase();
-    const data = tournament === 'pga'
-      ? await buildPgaScoresResponse()
-      : tournament === 'usopen'
-      ? await buildUsOpenScoresResponse()
-      : await buildMastersScoresResponse();
+    const tournament = String(req.query.tournament || 'theopen').toLowerCase();
+    let data;
+    if (tournament === 'pga') {
+      data = await buildPgaScoresResponse();
+    } else if (tournament === 'usopen') {
+      data = await buildUsOpenScoresResponse();
+    } else if (tournament === 'theopen') {
+      data = await buildTheOpenScoresResponse();
+    } else if (tournament === 'season') {
+      data = await buildSeasonStandingsResponse();
+    } else {
+      data = await buildMastersScoresResponse();
+    }
     res.json(data);
   } catch (err) {
     console.error('Error fetching scores:', err.message);
