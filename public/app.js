@@ -58,6 +58,10 @@ function roundPillHTML(score, isActive, donkeyIdx, options = {}) {
   return `<span class="round-pill ${cls}">${label}</span>`;
 }
 
+function isTournamentComplete(roundStatuses) {
+  return Array.isArray(roundStatuses) && roundStatuses[3] === 'F';
+}
+
 function buildRoundLabel(currentRound, roundStatuses) {
   if (!roundStatuses || roundStatuses.length === 0) return 'Round 1';
   const activeIdx = roundStatuses.findIndex((s) => s === 'A');
@@ -202,7 +206,7 @@ function renderLeaderboard(teams, roundStatuses) {
         .join('');
 
       const rankIcon =
-        rank === 1
+        rank === 1 && isTournamentComplete(roundStatuses)
           ? `<span class="rank-1-icon">🏆</span>`
           : `<span class="rank-num">${rank}</span>`;
       const cutCount = players.filter((p) => p.cut).length;
@@ -763,7 +767,7 @@ function renderIndividualLeaderboard(data) {
         ? `<span class="player-team-badge">${teamName.replace('Team ', '')}</span>`
         : '';
       const rankIcon =
-        p.displayRank === '1'
+        p.displayRank === '1' && isTournamentComplete(data.roundStatuses)
           ? `<span class="rank-1-icon">🏆</span>`
           : `<span class="rank-num">${p.displayRank}</span>`;
 
