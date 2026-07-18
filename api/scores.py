@@ -151,6 +151,8 @@ THE_OPEN_TEAMS = {
 
 THE_OPEN_BENCH_PLAYERS = {}
 
+THE_OPEN_DONKEY_PLAYERS = ['Naoyuki Kataoka', 'Kazuki Higa']
+
 NAME_ALIASES = {
     'Cam Smith': 'Cameron Smith',
     'Ludvig Aberg': 'Ludvig \u00c5berg',
@@ -844,6 +846,7 @@ def build_the_open_scores_response():
         THE_OPEN_LOGO_URL,
         'The Open Championship logo',
         made_cut_count=70,
+        preset_donkey_players=THE_OPEN_DONKEY_PLAYERS,
     )
 
 
